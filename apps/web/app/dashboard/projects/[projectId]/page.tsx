@@ -3,6 +3,7 @@
 import { trpc } from "@/lib/trpc/client"
 import { useParams } from "next/navigation"
 import Link from "next/link"
+import { Icon } from "@/components/shared/icon"
 
 const TABS = [
   { label: "Overview", href: "" },
@@ -214,7 +215,7 @@ export default function ProjectDetailPage() {
                     task.type === "DEPLOY" ? "bg-emerald-600/20 text-emerald-400" :
                     "bg-gray-700 text-gray-300"
                   }`}>
-                    {task.type === "REFACTOR" ? "🔄" : task.type === "GENERATE_DOCS" ? "📝" : task.type === "DEPLOY" ? "🚀" : "⚡"}
+                    <Icon name={task.type === "REFACTOR" ? "refactor" : task.type === "GENERATE_DOCS" ? "docs" : task.type === "DEPLOY" ? "deploy" : "bolt"} size={16} />
                   </div>
                   <div>
                     <div className="text-sm font-medium text-white">{task.type.replace(/_/g, " ")}</div>

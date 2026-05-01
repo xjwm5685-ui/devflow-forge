@@ -2,11 +2,12 @@
 
 import { trpc } from "@/lib/trpc/client"
 import { useRouter } from "next/navigation"
+import { Icon } from "@/components/shared/icon"
 
-const TEMPLATE_META: Record<string, { icon: string; color: string; desc: string }> = {
-  refactor: { icon: "🔄", color: "#6366f1", desc: "自动代码重构：架构分析 → 代码生成 → 测试验证" },
-  deploy: { icon: "🚀", color: "#22c55e", desc: "一键部署：构建 → 测试 → 容器化 → 上线" },
-  docs: { icon: "📝", color: "#eab308", desc: "智能文档：代码分析 → 文档生成 → 图表绘制" },
+const TEMPLATE_META: Record<string, { iconName: string; color: string; desc: string }> = {
+  refactor: { iconName: "refactor", color: "#6366f1", desc: "自动代码重构：架构分析 → 代码生成 → 测试验证" },
+  deploy: { iconName: "deploy", color: "#22c55e", desc: "一键部署：构建 → 测试 → 容器化 → 上线" },
+  docs: { iconName: "docs", color: "#eab308", desc: "智能文档：代码分析 → 文档生成 → 图表绘制" },
 }
 
 export default function TemplatesPage() {
@@ -22,14 +23,14 @@ export default function TemplatesPage() {
 
       <div className="grid grid-cols-3 gap-4">
         {templates?.map((template) => {
-          const meta = TEMPLATE_META[template.templateTag ?? ""] ?? { icon: "⚙️", color: "#71717a", desc: template.description ?? "自定义工作流" }
+          const meta = TEMPLATE_META[template.templateTag ?? ""] ?? { iconName: "template", color: "#71717a", desc: template.description ?? "自定义工作流" }
           const def = JSON.parse(template.definition)
 
           return (
             <div key={template.id} className="bg-surface-1 border border-surface-border rounded-lg p-5 hover:border-surface-border-light transition-colors">
               <div className="flex items-start gap-3 mb-4">
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg" style={{ backgroundColor: `${meta.color}15` }}>
-                  {meta.icon}
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${meta.color}15`, color: meta.color }}>
+                  <Icon name={meta.iconName} size={20} />
                 </div>
                 <div>
                   <h3 className="text-[13px] font-semibold text-text-primary">{template.name}</h3>

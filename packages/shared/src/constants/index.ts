@@ -4,46 +4,46 @@ export const AGENT_NAMES: AgentName[] = ["architect", "coder", "qa", "devops"]
 
 export const AGENT_CONFIG: Record<AgentName, { label: string; color: string; icon: string; description: string }> = {
   architect: {
-    label: "Architect",
+    label: "架构师",
     color: "#8b5cf6",
-    icon: "🏗️",
-    description: "Analyzes requirements and designs system architecture",
+    icon: "architect",
+    description: "分析需求，设计系统架构",
   },
   coder: {
-    label: "Coder",
+    label: "编码",
     color: "#3b82f6",
-    icon: "💻",
-    description: "Implements code changes based on the architect's plan",
+    icon: "coder",
+    description: "根据架构方案生成和修改代码",
   },
   qa: {
-    label: "QA Engineer",
+    label: "测试",
     color: "#10b981",
-    icon: "🧪",
-    description: "Reviews code, generates tests, and validates correctness",
+    icon: "qa",
+    description: "审查代码，生成测试用例",
   },
   devops: {
-    label: "DevOps",
+    label: "运维",
     color: "#f59e0b",
-    icon: "🚀",
-    description: "Handles deployment, CI/CD, and infrastructure",
+    icon: "devops",
+    description: "容器化、CI/CD 和部署",
   },
 }
 
 export const TASK_STATUS_LABELS: Record<string, string> = {
-  PENDING: "Pending",
-  RUNNING: "Running",
-  COMPLETED: "Completed",
-  FAILED: "Failed",
-  CANCELLED: "Cancelled",
+  PENDING: "等待中",
+  RUNNING: "运行中",
+  COMPLETED: "已完成",
+  FAILED: "失败",
+  CANCELLED: "已取消",
 }
 
 export const TASK_TYPE_LABELS: Record<string, string> = {
-  REFACTOR: "Code Refactor",
-  GENERATE_CODE: "Code Generation",
-  RUN_TESTS: "Run Tests",
-  DEPLOY: "Deploy",
-  GENERATE_DOCS: "Generate Documentation",
-  FULL_PIPELINE: "Full Pipeline",
+  REFACTOR: "代码重构",
+  GENERATE_CODE: "代码生成",
+  RUN_TESTS: "运行测试",
+  DEPLOY: "部署",
+  GENERATE_DOCS: "生成文档",
+  FULL_PIPELINE: "完整流水线",
 }
 
 export const DEFAULT_MODEL = "gpt-4o"

@@ -2,6 +2,7 @@
 
 import { trpc } from "@/lib/trpc/client"
 import { AGENT_CONFIG } from "@devflow/shared"
+import { Icon } from "@/components/shared/icon"
 
 const AGENT_LABELS: Record<string, string> = {
   architect: "架构师",
@@ -35,8 +36,8 @@ export default function AgentsPage() {
             <div key={agent.name} className="bg-surface-1 border border-surface-border rounded-lg p-5">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg" style={{ backgroundColor: `${config?.color ?? "#6b7280"}15` }}>
-                    {config?.icon}
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${config?.color ?? "#6b7280"}15`, color: config?.color ?? "#6b7280" }}>
+                    <Icon name={config?.icon ?? "bot"} size={20} />
                   </div>
                   <div>
                     <h3 className="text-[13px] font-semibold text-text-primary">{AGENT_LABELS[agent.name] ?? agent.name}</h3>

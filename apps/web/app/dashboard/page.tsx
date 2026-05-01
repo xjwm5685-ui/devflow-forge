@@ -3,13 +3,14 @@
 import { trpc } from "@/lib/trpc/client"
 import Link from "next/link"
 import { motion } from "framer-motion"
+import { Icon } from "@/components/shared/icon"
 
-function StatCard({ label, value, icon }: { label: string; value: string | number; icon: string }) {
+function StatCard({ label, value, iconName }: { label: string; value: string | number; iconName: string }) {
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="bg-surface-1 border border-surface-border rounded-lg p-5">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs text-text-tertiary uppercase tracking-wider">{label}</span>
-        <span className="text-lg">{icon}</span>
+        <span className="text-text-muted"><Icon name={iconName} size={18} /></span>
       </div>
       <div className="text-2xl font-semibold text-text-primary tracking-tight">{value}</div>
     </motion.div>
@@ -29,10 +30,10 @@ export default function DashboardPage() {
       </motion.div>
 
       <div className="grid grid-cols-4 gap-4 mb-8">
-        <StatCard label="项目" value={stats?.projectCount ?? 0} icon="📁" />
-        <StatCard label="任务" value={stats?.taskCount ?? 0} icon="⚡" />
-        <StatCard label="Token 用量" value={`${((stats?.totalTokens ?? 0) / 1000).toFixed(1)}K`} icon="🪙" />
-        <StatCard label="在线智能体" value="4" icon="🤖" />
+        <StatCard label="项目" value={stats?.projectCount ?? 0} iconName="folder" />
+        <StatCard label="任务" value={stats?.taskCount ?? 0} iconName="bolt" />
+        <StatCard label="Token 用量" value={`${((stats?.totalTokens ?? 0) / 1000).toFixed(1)}K`} iconName="coin" />
+        <StatCard label="在线智能体" value="4" iconName="bot" />
       </div>
 
       <div className="grid grid-cols-3 gap-6">
@@ -86,12 +87,12 @@ export default function DashboardPage() {
           <div className="bg-surface-1 border border-surface-border rounded-lg p-4 space-y-1.5">
             <h2 className="text-sm font-semibold text-text-primary mb-2">快速操作</h2>
             {[
-              { href: "/dashboard/projects", label: "浏览项目", icon: "📁" },
-              { href: "/dashboard/templates", label: "工作流模板", icon: "📋" },
-              { href: "/dashboard/agents", label: "智能体监控", icon: "🤖" },
+              { href: "/dashboard/projects", label: "浏览项目", iconName: "folder" },
+              { href: "/dashboard/templates", label: "工作流模板", iconName: "template" },
+              { href: "/dashboard/agents", label: "智能体监控", iconName: "bot" },
             ].map((item) => (
               <Link key={item.href} href={item.href} className="flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-text-secondary hover:text-text-primary hover:bg-surface-2 transition-colors">
-                <span className="text-sm">{item.icon}</span>
+                <span className="text-text-muted"><Icon name={item.iconName} size={16} /></span>
                 {item.label}
               </Link>
             ))}
