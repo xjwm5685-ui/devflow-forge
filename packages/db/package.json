@@ -11,6 +11,9 @@
     "push": "prisma db push",
     "seed": "tsx prisma/seed.ts",
     "reset": "prisma db push --force-reset && tsx prisma/seed.ts",
+    "db:push": "prisma db push",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

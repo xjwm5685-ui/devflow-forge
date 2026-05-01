@@ -9,9 +9,9 @@
     "build": "pnpm --filter @devflow/web build",
     "start": "pnpm --filter @devflow/web start",
     "db:generate": "pnpm --filter @devflow/db generate",
-    "db:push": "pnpm --filter @devflow/db push",
-    "db:seed": "pnpm --filter @devflow/db seed",
-    "db:reset": "pnpm --filter @devflow/db reset",
+    "db:push": "pnpm --filter @devflow/db db:push",
+    "db:seed": "pnpm --filter @devflow/db db:seed",
+    "db:reset": "pnpm --filter @devflow/db db:reset",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "clean": "pnpm -r exec rm -rf node_modules .next dist"

@@ -12,24 +12,18 @@ interface Settings {
 }
 
 const PROVIDERS = [
-  { name: "OpenAI", baseUrl: "https://api.openai.com/v1", models: ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"] },
+  { name: "OpenAI", baseUrl: "https://api.openai.com/v1", models: ["gpt-4o", "gpt-4o-mini"] },
   { name: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", models: ["deepseek-chat", "deepseek-coder"] },
-  { name: "MiMo (Xiaomi)", baseUrl: "https://api.xiaomi.com/v1", models: ["MiMo-v2.5-Pro"] },
-  { name: "Moonshot", baseUrl: "https://api.moonshot.cn/v1", models: ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"] },
-  { name: "Zhipu (GLM)", baseUrl: "https://open.bigmodel.cn/api/paas/v4", models: ["glm-4", "glm-4-flash"] },
-  { name: "Qwen", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", models: ["qwen-max", "qwen-plus", "qwen-turbo"] },
-  { name: "Local (Ollama)", baseUrl: "http://localhost:11434/v1", models: ["llama3", "qwen2.5", "deepseek-coder"] },
-  { name: "Custom", baseUrl: "", models: [] },
+  { name: "小米 MiMo", baseUrl: "https://api.xiaomi.com/v1", models: ["MiMo-v2.5-Pro"] },
+  { name: "Moonshot", baseUrl: "https://api.moonshot.cn/v1", models: ["moonshot-v1-8k", "moonshot-v1-32k"] },
+  { name: "智谱 GLM", baseUrl: "https://open.bigmodel.cn/api/paas/v4", models: ["glm-4", "glm-4-flash"] },
+  { name: "通义千问", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", models: ["qwen-max", "qwen-plus"] },
+  { name: "本地 Ollama", baseUrl: "http://localhost:11434/v1", models: ["llama3", "qwen2.5"] },
+  { name: "自定义", baseUrl: "", models: [] },
 ]
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState<Settings>({
-    openaiApiKey: "",
-    openaiBaseUrl: "https://api.openai.com/v1",
-    openaiModel: "gpt-4o",
-    demoMode: true,
-    hasApiKey: false,
-  })
+  const [settings, setSettings] = useState<Settings>({ openaiApiKey: "", openaiBaseUrl: "https://api.openai.com/v1", openaiModel: "gpt-4o", demoMode: true, hasApiKey: false })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -37,188 +31,104 @@ export default function SettingsPage() {
   const [selectedProvider, setSelectedProvider] = useState("OpenAI")
 
   useEffect(() => {
-    fetch("/api/settings")
-      .then((r) => r.json())
-      .then((data) => {
-        setSettings(data)
-        // Detect provider
-        const provider = PROVIDERS.find((p) => p.baseUrl === data.openaiBaseUrl)
-        if (provider) setSelectedProvider(provider.name)
-      })
-      .catch(console.error)
+    fetch("/api/settings").then((r) => r.json()).then((data) => {
+      setSettings(data)
+      const provider = PROVIDERS.find((p) => p.baseUrl === data.openaiBaseUrl)
+      if (provider) setSelectedProvider(provider.name)
+    }).catch(console.error)
   }, [])
 
   const handleSave = async () => {
     setSaving(true)
     setSaved(false)
     try {
-      const res = await fetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          openaiApiKey: settings.openaiApiKey,
-          openaiBaseUrl: settings.openaiBaseUrl,
-          openaiModel: settings.openaiModel,
-          demoMode: settings.demoMode,
-        }),
-      })
-      if (res.ok) {
-        setSaved(true)
-        setTimeout(() => setSaved(false), 3000)
-      }
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setSaving(false)
-    }
+      const res = await fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(settings) })
+      if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 3000) }
+    } catch {} finally { setSaving(false) }
   }
 
-  const handleTestConnection = async () => {
+  const handleTest = async () => {
     setTesting(true)
     setTestResult(null)
     try {
       const res = await fetch("/api/settings/test")
-      const data = await res.json()
-      setTestResult(data)
-    } catch {
-      setTestResult({ ok: false, message: "Failed to connect" })
-    } finally {
-      setTesting(false)
-    }
+      setTestResult(await res.json())
+    } catch { setTestResult({ ok: false, message: "连接失败" }) } finally { setTesting(false) }
   }
 
   return (
-    <div className="p-8 max-w-3xl">
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl font-bold text-white mb-2">Settings</h1>
-        <p className="text-gray-400 mb-8">Configure your AI model and API credentials</p>
+    <div className="p-8 max-w-2xl">
+      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
+        <h1 className="text-xl font-semibold text-text-primary tracking-tight">设置</h1>
+        <p className="text-sm text-text-tertiary mt-1">配置 AI 模型和 API 密钥</p>
       </motion.div>
 
       {/* Mode Toggle */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="bg-gray-900/50 border border-gray-800 rounded-xl p-6 mb-6"
-      >
-        <h2 className="font-semibold text-white mb-4">Operating Mode</h2>
-        <div className="flex gap-4">
-          <button
-            onClick={() => setSettings({ ...settings, demoMode: true })}
-            className={`flex-1 p-4 rounded-lg border transition-all ${
-              settings.demoMode
-                ? "bg-amber-600/10 border-amber-600/40 text-amber-400"
-                : "bg-gray-800/30 border-gray-700 text-gray-400 hover:border-gray-600"
-            }`}
-          >
-            <div className="text-lg font-semibold mb-1">Demo Mode</div>
-            <div className="text-sm opacity-70">Pre-recorded responses, no API key needed</div>
-          </button>
-          <button
-            onClick={() => setSettings({ ...settings, demoMode: false })}
-            className={`flex-1 p-4 rounded-lg border transition-all ${
-              !settings.demoMode
-                ? "bg-indigo-600/10 border-indigo-600/40 text-indigo-400"
-                : "bg-gray-800/30 border-gray-700 text-gray-400 hover:border-gray-600"
-            }`}
-          >
-            <div className="text-lg font-semibold mb-1">Live Mode</div>
-            <div className="text-sm opacity-70">Real AI model, requires API key</div>
-          </button>
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+        className="bg-surface-1 border border-surface-border rounded-lg p-5 mt-6">
+        <h2 className="text-sm font-semibold text-text-primary mb-4">运行模式</h2>
+        <div className="flex gap-3">
+          {[{ val: true, label: "演示模式", desc: "使用预录回复，无需 API 密钥" }, { val: false, label: "实时模式", desc: "调用真实 AI 模型，需要 API 密钥" }].map((m) => (
+            <button key={String(m.val)} onClick={() => setSettings({ ...settings, demoMode: m.val })}
+              className={`flex-1 p-4 rounded-lg border text-left transition-colors ${
+                settings.demoMode === m.val ? "bg-accent-dim border-accent/30 text-accent-light" : "bg-surface-2 border-surface-border text-text-secondary hover:border-surface-border-light"
+              }`}>
+              <div className="text-[13px] font-semibold mb-0.5">{m.label}</div>
+              <div className="text-xs text-text-muted">{m.desc}</div>
+            </button>
+          ))}
         </div>
       </motion.div>
 
       {/* Provider Selection */}
       {!settings.demoMode && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="bg-gray-900/50 border border-gray-800 rounded-xl p-6 mb-6"
-        >
-          <h2 className="font-semibold text-white mb-4">API Provider</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {PROVIDERS.map((provider) => (
-              <button
-                key={provider.name}
-                onClick={() => {
-                  setSelectedProvider(provider.name)
-                  if (provider.baseUrl) {
-                    setSettings({ ...settings, openaiBaseUrl: provider.baseUrl })
-                  }
-                  if (provider.models.length > 0) {
-                    setSettings((s) => ({ ...s, openaiModel: provider.models[0]! }))
-                  }
-                }}
-                className={`p-3 rounded-lg border text-sm font-medium transition-all ${
-                  selectedProvider === provider.name
-                    ? "bg-indigo-600/10 border-indigo-600/40 text-indigo-400"
-                    : "bg-gray-800/30 border-gray-700 text-gray-400 hover:border-gray-600"
-                }`}
-              >
-                {provider.name}
-              </button>
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+          className="bg-surface-1 border border-surface-border rounded-lg p-5 mt-4">
+          <h2 className="text-sm font-semibold text-text-primary mb-4">API 提供商</h2>
+          <div className="grid grid-cols-4 gap-2">
+            {PROVIDERS.map((p) => (
+              <button key={p.name} onClick={() => {
+                setSelectedProvider(p.name)
+                if (p.baseUrl) setSettings((s) => ({ ...s, openaiBaseUrl: p.baseUrl }))
+                if (p.models.length > 0) setSettings((s) => ({ ...s, openaiModel: p.models[0]! }))
+              }} className={`p-3 rounded-lg border text-[13px] font-medium transition-colors ${
+                selectedProvider === p.name ? "bg-accent-dim border-accent/30 text-accent-light" : "bg-surface-2 border-surface-border text-text-secondary hover:border-surface-border-light"
+              }`}>{p.name}</button>
             ))}
           </div>
         </motion.div>
       )}
 
-      {/* API Configuration */}
+      {/* API Config */}
       {!settings.demoMode && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-gray-900/50 border border-gray-800 rounded-xl p-6 mb-6"
-        >
-          <h2 className="font-semibold text-white mb-4">API Configuration</h2>
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+          className="bg-surface-1 border border-surface-border rounded-lg p-5 mt-4">
+          <h2 className="text-sm font-semibold text-text-primary mb-4">API 配置</h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm text-gray-400 mb-1">API Key</label>
-              <input
-                type="password"
-                value={settings.openaiApiKey}
-                onChange={(e) => setSettings({ ...settings, openaiApiKey: e.target.value })}
-                placeholder={settings.hasApiKey ? "Key configured (enter new to change)" : "sk-..."}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder:text-gray-600 focus:outline-none focus:border-indigo-600 font-mono text-sm"
-              />
+              <label className="block text-xs text-text-tertiary mb-1.5">API 密钥</label>
+              <input type="password" value={settings.openaiApiKey} onChange={(e) => setSettings({ ...settings, openaiApiKey: e.target.value })}
+                placeholder={settings.hasApiKey ? "已配置（输入新密钥以更换）" : "sk-..."}
+                className="w-full bg-surface-2 border border-surface-border rounded-md px-3 py-2 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 font-mono" />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Base URL</label>
-              <input
-                type="text"
-                value={settings.openaiBaseUrl}
-                onChange={(e) => setSettings({ ...settings, openaiBaseUrl: e.target.value })}
+              <label className="block text-xs text-text-tertiary mb-1.5">Base URL</label>
+              <input type="text" value={settings.openaiBaseUrl} onChange={(e) => setSettings({ ...settings, openaiBaseUrl: e.target.value })}
                 placeholder="https://api.openai.com/v1"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder:text-gray-600 focus:outline-none focus:border-indigo-600 font-mono text-sm"
-              />
+                className="w-full bg-surface-2 border border-surface-border rounded-md px-3 py-2 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 font-mono" />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Model</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={settings.openaiModel}
-                  onChange={(e) => setSettings({ ...settings, openaiModel: e.target.value })}
-                  placeholder="gpt-4o"
-                  className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder:text-gray-600 focus:outline-none focus:border-indigo-600 font-mono text-sm"
-                />
-              </div>
-              {/* Quick model select */}
+              <label className="block text-xs text-text-tertiary mb-1.5">模型 ID</label>
+              <input type="text" value={settings.openaiModel} onChange={(e) => setSettings({ ...settings, openaiModel: e.target.value })}
+                placeholder="gpt-4o"
+                className="w-full bg-surface-2 border border-surface-border rounded-md px-3 py-2 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/50 font-mono" />
               {PROVIDERS.find((p) => p.name === selectedProvider)?.models && (
-                <div className="flex gap-2 mt-2">
+                <div className="flex gap-1.5 mt-2">
                   {PROVIDERS.find((p) => p.name === selectedProvider)?.models.map((model) => (
-                    <button
-                      key={model}
-                      onClick={() => setSettings({ ...settings, openaiModel: model })}
-                      className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                        settings.openaiModel === model
-                          ? "bg-indigo-600 text-white"
-                          : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-                      }`}
-                    >
-                      {model}
-                    </button>
+                    <button key={model} onClick={() => setSettings({ ...settings, openaiModel: model })}
+                      className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
+                        settings.openaiModel === model ? "bg-accent text-white" : "bg-surface-3 text-text-muted hover:text-text-secondary"
+                      }`}>{model}</button>
                   ))}
                 </div>
               )}
@@ -228,62 +138,34 @@ export default function SettingsPage() {
       )}
 
       {/* Actions */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.25 }}
-        className="flex items-center gap-4"
-      >
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors font-medium disabled:opacity-50"
-        >
-          {saving ? "Saving..." : saved ? "Saved!" : "Save Settings"}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="flex items-center gap-3 mt-6">
+        <button onClick={handleSave} disabled={saving}
+          className="px-5 py-2 bg-accent text-white rounded-md hover:bg-accent-light transition-colors text-sm font-medium disabled:opacity-50">
+          {saving ? "保存中..." : saved ? "已保存" : "保存设置"}
         </button>
-
         {!settings.demoMode && settings.hasApiKey && (
-          <button
-            onClick={handleTestConnection}
-            disabled={testing}
-            className="px-6 py-2.5 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors font-medium disabled:opacity-50"
-          >
-            {testing ? "Testing..." : "Test Connection"}
+          <button onClick={handleTest} disabled={testing}
+            className="px-5 py-2 bg-surface-2 border border-surface-border text-text-secondary rounded-md hover:text-text-primary transition-colors text-sm font-medium disabled:opacity-50">
+            {testing ? "测试中..." : "测试连接"}
           </button>
         )}
-
-        {saved && (
-          <span className="text-sm text-emerald-400">Settings saved. Changes take effect immediately.</span>
-        )}
+        {saved && <span className="text-xs text-success">设置已保存，立即生效</span>}
       </motion.div>
 
-      {/* Test Result */}
       {testResult && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className={`mt-4 p-4 rounded-lg border ${
-            testResult.ok
-              ? "bg-emerald-600/10 border-emerald-600/30 text-emerald-400"
-              : "bg-red-600/10 border-red-600/30 text-red-400"
-          }`}
-        >
+        <div className={`mt-4 p-3 rounded-md text-sm ${testResult.ok ? "bg-success/10 text-success" : "bg-danger/10 text-danger"}`}>
           {testResult.message}
-        </motion.div>
+        </div>
       )}
 
-      {/* Info Box */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.3 }}
-        className="mt-8 bg-gray-900/30 border border-gray-800 rounded-xl p-6"
-      >
-        <h3 className="font-semibold text-white mb-3">How it works</h3>
-        <div className="space-y-2 text-sm text-gray-400">
-          <p><strong className="text-gray-300">Demo Mode:</strong> Agents return pre-recorded responses. No API key needed. Good for testing the UI and workflow.</p>
-          <p><strong className="text-gray-300">Live Mode:</strong> Agents call a real LLM API. Supports any OpenAI-compatible provider (OpenAI, DeepSeek, MiMo, Moonshot, Qwen, local Ollama, etc.)</p>
-          <p><strong className="text-gray-300">Auto-fallback:</strong> If Live Mode is enabled but the API call fails, the agent automatically falls back to demo responses for that request.</p>
+      {/* Info */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }}
+        className="mt-8 bg-surface-1 border border-surface-border rounded-lg p-5">
+        <h3 className="text-sm font-semibold text-text-primary mb-3">说明</h3>
+        <div className="space-y-2 text-xs text-text-muted">
+          <p><strong className="text-text-secondary">演示模式：</strong>智能体返回预录回复，无需 API 密钥，适合体验界面和工作流。</p>
+          <p><strong className="text-text-secondary">实时模式：</strong>调用真实 AI 模型。支持所有 OpenAI 兼容接口（OpenAI、DeepSeek、MiMo、Moonshot、智谱、千问、本地 Ollama 等）。</p>
+          <p><strong className="text-text-secondary">自动降级：</strong>如果实时模式 API 调用失败，智能体会自动降级到演示回复。</p>
         </div>
       </motion.div>
     </div>

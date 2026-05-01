@@ -1,23 +1,16 @@
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
 import { TRPCProvider } from "@/providers/trpc-provider"
 import "./globals.css"
 
-const inter = Inter({ subsets: ["latin"] })
-
 export const metadata: Metadata = {
-  title: "DevFlow Forge - AI-Powered DevOps Platform",
-  description: "Multi-agent AI system for automated code refactoring, testing, and deployment",
+  title: "DevFlow Forge",
+  description: "AI 驱动的全栈 DevOps 平台",
 }
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full antialiased">
-      <body className={`${inter.className} min-h-full flex flex-col`}>
+    <html lang="zh-CN" className="h-full">
+      <body className="min-h-full flex flex-col">
         <TRPCProvider>
           {children}
         </TRPCProvider>
