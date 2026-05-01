@@ -156,7 +156,7 @@ export default function WorkflowEditorPage() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [streamMessages])
+  }, [streamMessages.length])
 
   // Parse workflow definition with safe JSON parse
   const definition = workflow?.definition
