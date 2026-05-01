@@ -1,14 +1,36 @@
 import { router, protectedProcedure } from "../init"
+import { prisma } from "@/lib/db"
 
 export const agentRouter = router({
   status: protectedProcedure.query(async () => {
-    // Return mock agent statuses
-    return [
-      { name: "architect", status: "idle", lastActive: new Date(), tasksCompleted: 12 },
-      { name: "coder", status: "idle", lastActive: new Date(), tasksCompleted: 28 },
-      { name: "qa", status: "idle", lastActive: new Date(), tasksCompleted: 19 },
-      { name: "devops", status: "idle", lastActive: new Date(), tasksCompleted: 7 },
-    ]
+    // Get real task completion counts per agent type from DB
+    const agentNames = ["architect", "coder", "qa", "devops"] as const
+
+    const results = await Promise.all(
+      agentNames.map(async (name) => {
+        // Count completed tasks where this agent was involved (based on agent messages)
+        const completedTasks = await prisma.agentMessage.findMany({
+          where: {
+            agentName: name,
+            role: "response",
+            task: { status: "COMPLETED" },
+          },
+          distinct: ["taskId"],
+          select: { taskId: true, createdAt: true },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        })
+
+        return {
+          name,
+          status: "idle" as const,
+          lastActive: completedTasks[0]?.createdAt ?? null,
+          tasksCompleted: completedTasks.length,
+        }
+      })
+    )
+
+    return results
   }),
 
   tokenUsage: protectedProcedure.query(async ({ ctx }) => {

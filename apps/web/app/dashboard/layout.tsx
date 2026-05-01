@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { trpc } from "@/lib/trpc/client"
 
 const NAV = [
   { href: "/dashboard", label: "概览", icon: "grid" },
@@ -24,6 +25,7 @@ function Icon({ name, className }: { name: string; className?: string }) {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const { data: user } = trpc.user.me.useQuery()
 
   return (
     <div className="flex h-screen bg-zinc-950">
@@ -54,9 +56,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         <div className="p-3 border-t border-zinc-800">
           <div className="flex items-center gap-2.5 px-3 py-2">
-            <div className="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-medium text-zinc-400">D</div>
+            <div className="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-medium text-zinc-400">
+              {(user?.login ?? "U")[0].toUpperCase()}
+            </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-medium text-zinc-100 truncate">demo-user</div>
+              <div className="text-[13px] font-medium text-zinc-100 truncate">{user?.login ?? "用户"}</div>
             </div>
           </div>
         </div>

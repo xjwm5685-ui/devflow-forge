@@ -1,8 +1,9 @@
 "use client"
 
 import { trpc } from "@/lib/trpc/client"
-import { useRouter } from "next/navigation"
 import { Icon } from "@/components/shared/icon"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 
 const TEMPLATE_META: Record<string, { iconName: string; color: string; desc: string }> = {
   refactor: { iconName: "refactor", color: "#6366f1", desc: "自动代码重构：架构分析 → 代码生成 → 测试验证" },
@@ -12,7 +13,51 @@ const TEMPLATE_META: Record<string, { iconName: string; color: string; desc: str
 
 export default function TemplatesPage() {
   const { data: templates } = trpc.workflow.templates.useQuery()
+  const { data: projects } = trpc.project.list.useQuery()
+  const createWorkflow = trpc.workflow.create.useMutation()
   const router = useRouter()
+  const [selectedProject, setSelectedProject] = useState<string | null>(null)
+  const [creating, setCreating] = useState<string | null>(null)
+
+  const handleUseTemplate = (templateId: string, templateName: string, definition: string) => {
+    if (!projects || projects.length === 0) {
+      alert("请先创建一个项目")
+      return
+    }
+    if (projects.length === 1) {
+      // Auto-select the only project
+      const def = JSON.parse(definition)
+      createWorkflow.mutate({
+        name: templateName,
+        projectId: projects[0]!.id,
+        definition: def,
+      }, {
+        onSuccess: (data) => {
+          router.push(`/dashboard/projects/${projects[0]!.id}/workflows/${data.id}`)
+        },
+      })
+      return
+    }
+    setSelectedProject(templateId)
+  }
+
+  const confirmCreate = (templateId: string, templateName: string, definition: string, projectId: string) => {
+    setCreating(templateId)
+    const def = JSON.parse(definition)
+    createWorkflow.mutate({
+      name: templateName,
+      projectId,
+      definition: def,
+    }, {
+      onSuccess: (data) => {
+        router.push(`/dashboard/projects/${projectId}/workflows/${data.id}`)
+      },
+      onError: () => {
+        setCreating(null)
+        setSelectedProject(null)
+      },
+    })
+  }
 
   return (
     <div className="p-8 max-w-6xl">
@@ -21,7 +66,7 @@ export default function TemplatesPage() {
         <p className="text-sm text-zinc-500 mt-1">预置的通用工作流，一键使用</p>
       </div>
       <div className="grid grid-cols-3 gap-4">
-        {templates?.map((template) => {
+        {templates?.filter(t => t.isTemplate).map((template) => {
           const meta = TEMPLATE_META[template.templateTag ?? ""] ?? { iconName: "template", color: "#71717a", desc: template.description ?? "自定义工作流" }
           const def = JSON.parse(template.definition)
           return (
@@ -44,7 +89,26 @@ export default function TemplatesPage() {
                   </div>
                 ))}
               </div>
-              <button onClick={() => router.push("/dashboard/projects")} className="w-full py-2 bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-md hover:text-zinc-100 hover:bg-zinc-700 transition-colors text-[13px] font-medium">使用模板</button>
+
+              {selectedProject === template.id ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-zinc-400">选择项目：</p>
+                  {projects?.map((p) => (
+                    <button key={p.id} onClick={() => confirmCreate(template.id, template.name, template.definition, p.id)}
+                      disabled={creating === template.id}
+                      className="w-full text-left px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-[13px] text-zinc-200 hover:bg-zinc-700 transition-colors disabled:opacity-50">
+                      {p.name}
+                    </button>
+                  ))}
+                  <button onClick={() => setSelectedProject(null)} className="w-full py-1.5 text-xs text-zinc-500 hover:text-zinc-300">取消</button>
+                </div>
+              ) : (
+                <button onClick={() => handleUseTemplate(template.id, template.name, template.definition)}
+                  disabled={createWorkflow.isPending}
+                  className="w-full py-2 bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-md hover:text-zinc-100 hover:bg-zinc-700 transition-colors text-[13px] font-medium disabled:opacity-50">
+                  使用模板
+                </button>
+              )}
             </div>
           )
         })}

@@ -21,12 +21,13 @@ export default function DashboardPage() {
   const { data: stats } = trpc.user.stats.useQuery()
   const { data: tasks } = trpc.task.list.useQuery({ limit: 5 })
   const { data: agents } = trpc.agent.status.useQuery()
+  const { data: user } = trpc.user.me.useQuery()
 
   return (
     <div className="p-8 max-w-6xl">
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
         <h1 className="text-xl font-semibold text-zinc-100 tracking-tight">概览</h1>
-        <p className="text-sm text-zinc-500 mt-1">欢迎回来，demo-user</p>
+        <p className="text-sm text-zinc-500 mt-1">欢迎回来，{user?.login ?? "用户"}</p>
       </motion.div>
 
       <div className="grid grid-cols-4 gap-4 mb-8">
