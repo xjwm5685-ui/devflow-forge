@@ -8,6 +8,8 @@ export default function LoginPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
+  // loading resets naturally since page remounts on navigation back
+
   const handleLogin = async () => {
     setLoading(true)
     router.push("/api/auth/github")

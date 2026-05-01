@@ -165,11 +165,6 @@ export async function* callLLMStream(
   }
 }
 
-// Utility: count tokens (approximation)
-export function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4)
-}
-
 // Utility: build system + user message pair
 export function buildMessages(
   systemPrompt: string,

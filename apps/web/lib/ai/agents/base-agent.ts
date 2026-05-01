@@ -130,8 +130,8 @@ export abstract class BaseAgent {
     const artifacts: AgentResult["artifacts"] = []
 
     // Extract code blocks with filenames
-    const codeBlockRegex = /```(\w+)?\s*(?:filename[=:]?\s*(\S+))?\n([\s\S]*?)```/g
-    let match
+    const codeBlockRegex = /```(\w+)?\s*(?:filename[=:]?\s*(\S+))?\n([\s\S]*?)```/gi
+    let match: RegExpExecArray | null
     while ((match = codeBlockRegex.exec(content)) !== null) {
       const filename = match[2]
       const code = match[3]

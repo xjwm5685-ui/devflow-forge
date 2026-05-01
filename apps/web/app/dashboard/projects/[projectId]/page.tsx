@@ -68,7 +68,7 @@ export default function ProjectDetailPage() {
       <div className="flex gap-1 mb-8 border-b border-gray-800 pb-px">
         {TABS.map((tab) => {
           const href = `/dashboard/projects/${projectId}${tab.href}`
-          const isActive = tab.href === "" ? true : false // Overview is always "active" on this page
+          const isActive = tab.href === ""
           return (
             <Link
               key={tab.label}

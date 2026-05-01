@@ -39,6 +39,8 @@ model Project {
   tasks        Task[]
   documents    Document[]
   deployments  Deployment[]
+
+  @@index([userId])
 }
 
 model Workflow {
@@ -46,7 +48,7 @@ model Workflow {
   name        String
   description String?
   projectId   String
-  definition  String   @default("{}") // JSON string of React Flow graph
+  definition  String   @default("{}")
   isTemplate  Boolean  @default(false)
   templateTag String?
   createdAt   DateTime @default(now())
@@ -54,27 +56,35 @@ model Workflow {
 
   project     Project  @relation(fields: [projectId], references: [id])
   tasks       Task[]
+
+  @@index([projectId])
+  @@index([isTemplate])
 }
 
 model Task {
-  id           String     @id @default(cuid())
+  id           String          @id @default(cuid())
   projectId    String
   workflowId   String?
   userId       String
-  status       String     @default("PENDING") // PENDING, RUNNING, COMPLETED, FAILED, CANCELLED
-  type         String     // REFACTOR, GENERATE_CODE, RUN_TESTS, DEPLOY, GENERATE_DOCS, FULL_PIPELINE
-  input        String     @default("{}") // JSON
-  output       String?    // JSON
-  agentTrace   String?    // JSON array of agent messages
-  tokenUsage   Int        @default(0)
+  status       String          @default("PENDING")
+  type         String
+  input        String          @default("{}")
+  output       String?
+  agentTrace   String?
+  tokenUsage   Int             @default(0)
   startedAt    DateTime?
   completedAt  DateTime?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 
-  project      Project    @relation(fields: [projectId], references: [id])
-  workflow     Workflow?  @relation(fields: [workflowId], references: [id])
-  user         User       @relation(fields: [userId], references: [id])
+  project      Project         @relation(fields: [projectId], references: [id])
+  workflow     Workflow?       @relation(fields: [workflowId], references: [id])
+  user         User            @relation(fields: [userId], references: [id])
+  agentMessages AgentMessage[]
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([status])
 }
 
 model Document {
@@ -82,16 +92,19 @@ model Document {
   projectId String
   userId    String
   title     String
-  content   String   @default("{}") // JSON
-  diagrams  String?  // JSON array of diagram data
+  content   String   @default("{}")
+  diagrams  String?
   audioUrl  String?
   videoUrl  String?
-  status    String   @default("DRAFT") // DRAFT, GENERATING, COMPLETED, FAILED
+  status    String   @default("DRAFT")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   project   Project  @relation(fields: [projectId], references: [id])
   user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([projectId])
 }
 
 model Deployment {
@@ -99,10 +112,10 @@ model Deployment {
   projectId   String
   userId      String
   environment String   @default("staging")
-  status      String   @default("PENDING") // PENDING, BUILDING, PUSHING, DEPLOYING, RUNNING, FAILED, STOPPED
+  status      String   @default("PENDING")
   dockerImage String?
-  cicdConfig  String?  // JSON
-  logs        String?  // JSON array of log lines
+  cicdConfig  String?
+  logs        String?
   url         String?
   startedAt   DateTime?
   completedAt DateTime?
@@ -111,19 +124,26 @@ model Deployment {
 
   project     Project  @relation(fields: [projectId], references: [id])
   user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([status])
 }
 
 model TokenUsage {
-  id          String   @id @default(cuid())
-  userId      String
-  model       String
-  inputTokens Int
+  id           String   @id @default(cuid())
+  userId       String
+  model        String
+  inputTokens  Int
   outputTokens Int
-  costCents   Int      @default(0)
-  taskId      String?
-  createdAt   DateTime @default(now())
+  costCents    Int      @default(0)
+  taskId       String?
+  createdAt    DateTime @default(now())
 
-  user        User     @relation(fields: [userId], references: [id])
+  user         User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([taskId])
 }
 
 model AgentMessage {
@@ -132,6 +152,10 @@ model AgentMessage {
   agentName String
   role      String
   content   String
-  metadata  String?  // JSON
+  metadata  String?
   createdAt DateTime @default(now())
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
 }

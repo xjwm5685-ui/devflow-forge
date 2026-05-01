@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { router, protectedProcedure } from "../init"
-import { createWorkflowSchema } from "@devflow/shared"
+import { createWorkflowSchema, workflowNodeSchema, workflowEdgeSchema } from "@devflow/shared"
 import { TRPCError } from "@trpc/server"
 
 export const workflowRouter = router({
@@ -63,7 +63,11 @@ export const workflowRouter = router({
       id: z.string(),
       name: z.string().optional(),
       description: z.string().optional(),
-      definition: z.any().optional(),
+      definition: z.object({
+        nodes: z.array(workflowNodeSchema),
+        edges: z.array(workflowEdgeSchema),
+        viewport: z.object({ x: z.number(), y: z.number(), zoom: z.number() }).optional(),
+      }).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input

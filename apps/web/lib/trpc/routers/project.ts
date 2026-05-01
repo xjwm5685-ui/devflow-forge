@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { router, protectedProcedure } from "../init"
 import { createProjectSchema, updateProjectSchema } from "@devflow/shared"
+import { TRPCError } from "@trpc/server"
 
 export const projectRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
@@ -42,17 +43,22 @@ export const projectRouter = router({
     .input(updateProjectSchema)
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input
-      return ctx.db.project.update({
+      const project = await ctx.db.project.findFirst({
         where: { id, userId: ctx.session.id },
-        data,
+        select: { id: true },
       })
+      if (!project) throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" })
+      return ctx.db.project.update({ where: { id }, data })
     }),
 
   delete: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      return ctx.db.project.delete({
+      const project = await ctx.db.project.findFirst({
         where: { id: input.id, userId: ctx.session.id },
+        select: { id: true },
       })
+      if (!project) throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" })
+      return ctx.db.project.delete({ where: { id: input.id } })
     }),
 })

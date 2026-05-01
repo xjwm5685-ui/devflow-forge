@@ -26,7 +26,7 @@ class MessageBus {
           to: message.to,
         }),
       },
-    }).catch(console.error)
+    })
   }
 
   subscribe(taskId: string, handler: (message: AgentMessage) => void): () => void {

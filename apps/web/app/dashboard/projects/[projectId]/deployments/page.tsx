@@ -5,7 +5,7 @@ import { useParams } from "next/navigation"
 
 export default function DeploymentsPage() {
   const params = useParams()
-  const projectId = params.projectId as string
+  const projectId = String(params.projectId)
   const { data: deployments, refetch } = trpc.deployment.list.useQuery({ projectId })
   const createDeploy = trpc.deployment.create.useMutation({ onSuccess: () => refetch() })
 

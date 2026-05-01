@@ -58,8 +58,18 @@ export const taskRouter = router({
   cancel: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      return ctx.db.task.update({
+      const task = await ctx.db.task.findFirst({
         where: { id: input.id, userId: ctx.session.id },
+        select: { id: true, status: true },
+      })
+      if (!task) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Task not found" })
+      }
+      if (task.status !== "PENDING" && task.status !== "RUNNING") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: `Cannot cancel task with status ${task.status}` })
+      }
+      return ctx.db.task.update({
+        where: { id: input.id },
         data: { status: "CANCELLED", completedAt: new Date() },
       })
     }),

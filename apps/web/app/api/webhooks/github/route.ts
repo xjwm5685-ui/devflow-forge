@@ -25,7 +25,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
   }
 
-  const payload = JSON.parse(body)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let payload: any
+  try {
+    payload = JSON.parse(body)
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+  }
 
   switch (event) {
     case "push": {

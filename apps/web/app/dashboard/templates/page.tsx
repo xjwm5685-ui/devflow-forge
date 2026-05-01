@@ -25,6 +25,13 @@ export default function TemplatesPage() {
     },
   }
 
+  const colorMap: Record<string, string> = {
+    indigo: "#6366f1",
+    emerald: "#10b981",
+    amber: "#f59e0b",
+    gray: "#6b7280",
+  }
+
   return (
     <div className="p-8">
       <div className="mb-8">
@@ -49,7 +56,10 @@ export default function TemplatesPage() {
               className="bg-gray-900/50 border border-gray-800 rounded-xl p-6 hover:border-gray-700 transition-all"
             >
               <div className="flex items-start gap-4 mb-4">
-                <div className={`w-12 h-12 rounded-xl bg-${meta.color}-600/20 flex items-center justify-center text-xl`}>
+                <div
+                  className="w-12 h-12 rounded-xl flex items-center justify-center text-xl"
+                  style={{ backgroundColor: `${colorMap[meta.color] ?? '#6b7280'}20` }}
+                >
                   {meta.icon}
                 </div>
                 <div>

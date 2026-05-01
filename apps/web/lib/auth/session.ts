@@ -1,21 +1,6 @@
 import { SignJWT, jwtVerify } from "jose"
 import { cookies } from "next/headers"
-
-function getSessionSecret(): Uint8Array {
-  const secret = process.env.SESSION_SECRET
-  if (!secret) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("FATAL: SESSION_SECRET is not set. Refusing to start in production without it.")
-    }
-    // Dev: use random secret per restart, warn once
-    if (!(globalThis as Record<string, unknown>).__devSecretWarned) {
-      console.warn("[Auth] SESSION_SECRET not set. Using random dev secret. Sessions will not persist across restarts.")
-      ;(globalThis as Record<string, unknown>).__devSecretWarned = true
-    }
-    return new TextEncoder().encode(crypto.randomUUID())
-  }
-  return new TextEncoder().encode(secret)
-}
+import { getSessionSecret } from "./secret"
 
 export interface SessionUser {
   id: string

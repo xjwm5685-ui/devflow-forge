@@ -7,9 +7,7 @@ export async function GET(
   { params }: { params: Promise<{ taskId: string }> }
 ) {
   const session = await getSession()
-  if (!session) {
-    return new Response("Unauthorized", { status: 401 })
-  }
+  if (!session) return new Response("Unauthorized", { status: 401 })
 
   const { taskId } = await params
 
@@ -17,18 +15,13 @@ export async function GET(
     where: { id: taskId, userId: session.id },
     select: { id: true, status: true },
   })
-  if (!task) {
-    return new Response("Not found", { status: 404 })
-  }
+  if (!task) return new Response("Not found", { status: 404 })
 
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
     async start(controller) {
-      controller.enqueue(
-        encoder.encode(`data: ${JSON.stringify({ type: "status", status: task.status })}\n\n`)
-      )
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "status", status: task.status })}\n\n`))
 
-      // For completed tasks, load history from DB (survives server restart)
       if (task.status === "COMPLETED" || task.status === "FAILED") {
         const history = await messageBus.loadHistory(taskId)
         for (const msg of history) {
@@ -39,29 +32,42 @@ export async function GET(
         return
       }
 
-      // For running tasks, stream live messages
       const unsubscribe = messageBus.subscribe(taskId, (message) => {
         try {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`))
-
-          if (message.type === "response" && message.content.includes("Workflow completed")) {
-            setTimeout(() => {
-              controller.enqueue(encoder.encode("data: [DONE]\n\n"))
-              controller.close()
-            }, 500)
-          }
-          if (message.type === "error" && message.content.includes("Workflow failed")) {
-            setTimeout(() => {
-              controller.enqueue(encoder.encode("data: [DONE]\n\n"))
-              controller.close()
-            }, 500)
-          }
-        } catch {
-          // Stream closed
-        }
+        } catch { /* stream closed */ }
       })
 
+      // Poll DB for terminal state as fallback (handles cases where message bus misses completion)
+      const pollInterval = setInterval(async () => {
+        try {
+          const current = await prisma.task.findFirst({
+            where: { id: taskId },
+            select: { status: true },
+          })
+          if (current?.status === "COMPLETED" || current?.status === "FAILED") {
+            clearInterval(pollInterval)
+            unsubscribe()
+            // Send completion signal
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ id: "__done__", type: "response", content: "Workflow completed", __complete: true, from: "system", to: "user", taskId, metadata: { timestamp: Date.now() } })}\n\n`))
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"))
+            controller.close()
+          }
+        } catch { /* ignore poll errors */ }
+      }, 5000)
+
+      // Timeout after 5 minutes
+      const timeout = setTimeout(() => {
+        clearInterval(pollInterval)
+        unsubscribe()
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ id: "__timeout__", type: "error", content: "Stream timeout", from: "system", to: "user", taskId, metadata: { timestamp: Date.now() } })}\n\n`))
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"))
+        try { controller.close() } catch {}
+      }, 5 * 60 * 1000)
+
       request.signal.addEventListener("abort", () => {
+        clearInterval(pollInterval)
+        clearTimeout(timeout)
         unsubscribe()
         try { controller.close() } catch {}
       })

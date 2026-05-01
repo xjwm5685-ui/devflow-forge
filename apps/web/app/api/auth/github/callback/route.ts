@@ -6,7 +6,7 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 
 export async function GET(request: Request) {
-  const isDemo = process.env.DEMO_MODE === "true" || process.env.NODE_ENV !== "production"
+  const isDemo = process.env.DEMO_MODE === "true"
 
   if (isDemo) {
     await loginAsDemo()

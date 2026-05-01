@@ -6,7 +6,7 @@ import { useState } from "react"
 
 export default function DocumentsPage() {
   const params = useParams()
-  const projectId = params.projectId as string
+  const projectId = String(params.projectId)
   const { data: documents, refetch } = trpc.document.list.useQuery({ projectId })
   const generateDoc = trpc.document.generate.useMutation({ onSuccess: () => refetch() })
 

@@ -34,7 +34,14 @@ export async function processWorkflowTask(taskId: string, workflow: WorkflowReco
     taskId,
     userId: task.userId,
     workflow: workflowDef,
-    input: task.input ? JSON.parse(task.input).prompt ?? task.input : "Execute workflow",
+    input: (() => {
+      try {
+        const parsed = task.input ? JSON.parse(task.input) : null
+        return parsed?.prompt ?? task.input ?? "Execute workflow"
+      } catch {
+        return task.input ?? "Execute workflow"
+      }
+    })(),
     files: MOCK_FILES,
   })
 }

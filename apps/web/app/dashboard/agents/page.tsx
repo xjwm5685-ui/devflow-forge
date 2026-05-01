@@ -24,7 +24,7 @@ export default function AgentsPage() {
                 <div className="flex items-center gap-3">
                   <div
                     className="w-12 h-12 rounded-xl flex items-center justify-center text-xl"
-                    style={{ backgroundColor: `${config?.color}20` }}
+                    style={{ backgroundColor: `${config?.color ?? "#6b7280"}20` }}
                   >
                     {config?.icon}
                   </div>
@@ -61,25 +61,23 @@ export default function AgentsPage() {
       {/* Token Usage Chart */}
       <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
         <h2 className="font-semibold text-white mb-4">Token Usage (Last 30 Days)</h2>
-        {tokenData?.byDay && Object.keys(tokenData.byDay).length > 0 ? (
-          <div className="h-48 flex items-end gap-1">
-            {Object.entries(tokenData.byDay).map(([day, tokens]) => {
-              const maxTokens = Math.max(...Object.values(tokenData.byDay))
-              const height = maxTokens > 0 ? (tokens / maxTokens) * 100 : 0
-              return (
-                <div key={day} className="flex-1 flex flex-col items-center gap-1">
-                  <div
-                    className="w-full bg-indigo-600 rounded-t"
-                    style={{ height: `${height}%` }}
-                  />
-                  <span className="text-[10px] text-gray-600 -rotate-45 origin-top-left">
-                    {day.split("-")[2]}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        ) : (
+        {tokenData?.byDay && Object.keys(tokenData.byDay).length > 0 ? (() => {
+          const entries = Object.entries(tokenData.byDay)
+          const maxTokens = Math.max(...Object.values(tokenData.byDay))
+          return (
+            <div className="h-48 flex items-end gap-1">
+              {entries.map(([day, tokens]) => {
+                const height = maxTokens > 0 ? (tokens / maxTokens) * 100 : 0
+                return (
+                  <div key={day} className="flex-1 flex flex-col items-center gap-1">
+                    <div className="w-full bg-indigo-600 rounded-t" style={{ height: `${height}%` }} />
+                    <span className="text-[10px] text-gray-600 -rotate-45 origin-top-left">{day.split("-")[2]}</span>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })() : (
           <div className="h-48 flex items-center justify-center text-gray-500">
             No token usage data yet. Run a workflow to see usage.
           </div>

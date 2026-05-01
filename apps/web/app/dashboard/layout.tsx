@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils/cn"
+import { trpc } from "@/lib/trpc/client"
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: "grid" },
@@ -46,6 +47,7 @@ function NavIcon({ icon, className }: { icon: string; className?: string }) {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const { data: user } = trpc.user.me.useQuery()
 
   return (
     <div className="flex h-screen bg-[#09090b]">
@@ -87,11 +89,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="p-4 border-t border-gray-800">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs font-medium text-white">
-              D
+              {user?.login?.[0]?.toUpperCase() ?? "D"}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-white truncate">demo-user</div>
-              <div className="text-xs text-gray-500 truncate">demo@devflow.dev</div>
+                <div className="text-sm font-medium text-white truncate">{user?.login ?? "User"}</div>
+                <div className="text-xs text-gray-500 truncate">{user?.email ?? ""}</div>
             </div>
           </div>
         </div>

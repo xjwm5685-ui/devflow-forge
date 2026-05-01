@@ -1,22 +1,12 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { jwtVerify } from "jose"
-
-function getSecret(): Uint8Array {
-  const secret = process.env.SESSION_SECRET
-  if (!secret) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("SESSION_SECRET is required in production")
-    }
-    return new TextEncoder().encode(crypto.randomUUID())
-  }
-  return new TextEncoder().encode(secret)
-}
+import { getSessionSecret } from "@/lib/auth/secret"
 
 async function hasValidSession(token: string | undefined): Promise<boolean> {
   if (!token) return false
   try {
-    await jwtVerify(token, getSecret())
+    await jwtVerify(token, getSessionSecret())
     return true
   } catch {
     return false
@@ -50,7 +40,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.svg).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.svg).*)"],
 }

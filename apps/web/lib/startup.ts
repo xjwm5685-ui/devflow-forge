@@ -1,14 +1,12 @@
 import { recoverStuckTasks } from "./queue/recover"
 
-let initialized = false
+let initPromise: Promise<void> | null = null
 
 export async function ensureInitialized(): Promise<void> {
-  if (initialized) return
-  initialized = true
-
-  try {
-    await recoverStuckTasks()
-  } catch (error) {
-    console.error("[Startup] Recovery failed:", error)
+  if (!initPromise) {
+    initPromise = recoverStuckTasks().catch((error) => {
+      console.error("[Startup] Recovery failed:", error)
+    })
   }
+  return initPromise
 }

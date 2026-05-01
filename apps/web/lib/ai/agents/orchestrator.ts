@@ -58,6 +58,8 @@ export class Orchestrator {
         .filter((n) => n.type === "agent")
         .sort((a, b) => a.position.y - b.position.y)
 
+      // Load history from DB for resuming tasks
+      await messageBus.loadHistory(taskId)
       let currentInput = input
       let qaPassCount = 0
 
@@ -71,7 +73,7 @@ export class Orchestrator {
 
         // Announce agent start
         await messageBus.publish(taskId, createAgentMessage(
-          taskId, "architect", "orchestrator", "status",
+          taskId, agentName, "orchestrator", "status",
           `Starting ${node.data.label || agentName} agent...`
         ))
 
@@ -93,26 +95,35 @@ export class Orchestrator {
             const needsChanges = result.content.toLowerCase().includes("needs_changes") ||
                                  result.content.toLowerCase().includes("fail")
 
-            if (needsChanges && retries < MAX_AGENT_RETRIES - 1) {
-              retries++
+            if (needsChanges) {
               qaPassCount++
 
+              if (retries < MAX_AGENT_RETRIES - 1) {
+                retries++
+
+                await messageBus.publish(taskId, createAgentMessage(
+                  taskId, "qa", "orchestrator", "status",
+                  `QA found issues. Sending back to Coder (attempt ${retries}/${MAX_AGENT_RETRIES})...`
+                ))
+
+                // Re-execute coder with QA feedback
+                const coderResult = await coderAgent.execute({
+                  taskId,
+                  userId,
+                  input: `Based on QA feedback, fix the issues:\n\n${result.content}\n\nOriginal task: ${currentInput}`,
+                  context,
+                  conversationHistory: messageBus.getHistory(taskId),
+                })
+
+                currentInput = coderResult.content
+                continue
+              }
+
+              // Max QA retries reached
               await messageBus.publish(taskId, createAgentMessage(
                 taskId, "qa", "orchestrator", "status",
-                `QA found issues. Sending back to Coder (attempt ${retries}/${MAX_AGENT_RETRIES})...`
+                `Max QA review attempts reached (${MAX_AGENT_RETRIES}). Proceeding - manual review recommended.`
               ))
-
-              // Re-execute coder with QA feedback
-              const coderResult = await coderAgent.execute({
-                taskId,
-                userId,
-                input: `Based on QA feedback, fix the issues:\n\n${result.content}\n\nOriginal task: ${currentInput}`,
-                context,
-                conversationHistory: messageBus.getHistory(taskId),
-              })
-
-              currentInput = coderResult.content
-              continue
             }
           }
 
@@ -144,8 +155,9 @@ export class Orchestrator {
         },
       })
 
+      const lastAgentName = (agentNodes[agentNodes.length - 1]?.data.agentName as AgentName) ?? "architect"
       await messageBus.publish(taskId, createAgentMessage(
-        taskId, "architect", "orchestrator", "response",
+        taskId, lastAgentName, "orchestrator", "response",
         `✅ Workflow completed successfully!\n\n${prDescription}`
       ))
 

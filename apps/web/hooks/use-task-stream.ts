@@ -6,18 +6,19 @@ import type { AgentMessage } from "@devflow/shared"
 interface UseTaskStreamOptions {
   taskId: string | null
   enabled?: boolean
-  onMessage?: (message: AgentMessage) => void
   onComplete?: () => void
-  onError?: (error: string) => void
 }
 
 type StreamStatus = "idle" | "connecting" | "streaming" | "done" | "error"
 
-export function useTaskStream({ taskId, enabled = true, onMessage, onComplete, onError }: UseTaskStreamOptions) {
+export function useTaskStream({ taskId, enabled = true, onComplete }: UseTaskStreamOptions) {
   const messagesRef = useRef<AgentMessage[]>([])
   const msgListenersRef = useRef(new Set<() => void>())
   const statusRef = useRef<StreamStatus>("idle")
   const statusListenersRef = useRef(new Set<() => void>())
+  const onCompleteRef = useRef(onComplete)
+  // Update ref in effect to avoid React Compiler lint error
+  useEffect(() => { onCompleteRef.current = onComplete })
 
   const subscribeStatus = useCallback((listener: () => void) => {
     statusListenersRef.current.add(listener)
@@ -72,27 +73,25 @@ export function useTaskStream({ taskId, enabled = true, onMessage, onComplete, o
       if (event.data === "[DONE]") {
         updateStatus("done")
         es.close()
-        onComplete?.()
+        onCompleteRef.current?.()
         return
       }
 
       try {
         const message = JSON.parse(event.data) as AgentMessage
         if (message.type === "status" && !message.id) return
-
         appendMessage(message)
-        onMessage?.(message)
 
-        if (message.type === "response" && message.content.includes("Workflow completed")) {
+        // Use structured completion signal from server
+        if ((message as unknown as Record<string, unknown>).__complete) {
           updateStatus("done")
+          es.close()
+          onCompleteRef.current?.()
         }
         if (message.type === "error") {
           updateStatus("error")
-          onError?.(message.content)
         }
-      } catch {
-        // Skip malformed messages
-      }
+      } catch {}
     }
 
     es.onerror = () => {
@@ -101,7 +100,7 @@ export function useTaskStream({ taskId, enabled = true, onMessage, onComplete, o
     }
 
     return () => { es.close() }
-  }, [taskId, enabled, onMessage, onComplete, onError, updateStatus, clearMessages, appendMessage])
+  }, [taskId, enabled, updateStatus, clearMessages, appendMessage])
 
   return { messages, status, reset }
 }
