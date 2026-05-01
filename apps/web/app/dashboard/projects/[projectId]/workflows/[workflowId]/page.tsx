@@ -2,7 +2,7 @@
 
 import { trpc } from "@/lib/trpc/client"
 import { useParams } from "next/navigation"
-import { useState, useCallback, useEffect, useRef } from "react"
+import { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import {
   ReactFlow,
   Background,
@@ -160,7 +160,7 @@ export default function WorkflowEditorPage() {
 
   // Parse workflow definition with safe JSON parse
   const definition = workflow?.definition
-  const initialDefinition = safeJsonParse(definition, { nodes: [], edges: [] })
+  const initialDefinition = useMemo(() => safeJsonParse(definition, { nodes: [], edges: [] }), [definition])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [nodes, setNodes, onNodesChange] = useNodesState([] as any[])
