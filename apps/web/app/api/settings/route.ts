@@ -40,14 +40,24 @@ function loadSettings(): Settings {
   try {
     if (existsSync(SETTINGS_FILE)) {
       const raw = readFileSync(SETTINGS_FILE, "utf-8")
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }
+      const parsed = JSON.parse(raw) as Record<string, unknown>
+      // Decode base64-encoded API key
+      if (typeof parsed.openaiApiKey === "string" && parsed.openaiApiKey.startsWith("b64:")) {
+        parsed.openaiApiKey = Buffer.from(parsed.openaiApiKey.slice(4), "base64").toString("utf-8")
+      }
+      return { ...DEFAULT_SETTINGS, ...parsed } as Settings
     }
   } catch {}
   return DEFAULT_SETTINGS
 }
 
 function saveSettings(settings: Settings): void {
-  writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2))
+  const toSave = { ...settings }
+  // Obfuscate API key with base64 (not encryption, but avoids plaintext)
+  if (toSave.openaiApiKey) {
+    toSave.openaiApiKey = "b64:" + Buffer.from(toSave.openaiApiKey, "utf-8").toString("base64")
+  }
+  writeFileSync(SETTINGS_FILE, JSON.stringify(toSave, null, 2))
 }
 
 export async function GET() {

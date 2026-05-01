@@ -1,6 +1,6 @@
 import { exec } from "child_process"
 import { promisify } from "util"
-import { writeFile, mkdir } from "fs/promises"
+import { writeFile, mkdir, cp } from "fs/promises"
 import { join } from "path"
 import { tmpdir } from "os"
 
@@ -31,13 +31,11 @@ export async function buildImage(params: {
   const { dockerfile, tag, onLog } = params
   const logs: string[] = []
 
-  // Write Dockerfile to temp directory
   const buildDir = join(tmpdir(), "devflow-build-" + Date.now())
   await mkdir(buildDir, { recursive: true })
   await writeFile(join(buildDir, "Dockerfile"), dockerfile)
 
   try {
-    // Check Docker availability
     const hasDocker = await isDockerAvailable()
     if (!hasDocker) {
       return {
@@ -47,20 +45,23 @@ export async function buildImage(params: {
       }
     }
 
-    // Build the image
     const log = (msg: string) => {
       logs.push(msg)
       onLog?.(msg)
     }
 
     log(`Building Docker image: ${tag}`)
-    log(`Context: ${buildDir}`)
 
-    // Copy project files to build context
-    await execAsync(`cp -r ${params.context}/* ${buildDir}/ 2>/dev/null || true`)
+    // Cross-platform file copy using Node.js fs.cp
+    await cp(params.context, buildDir, {
+      recursive: true,
+      filter: (src) => !src.includes("node_modules") && !src.includes(".next") && !src.includes(".git"),
+    }).catch(() => {
+      // Ignore copy errors for non-essential files
+    })
 
     const { stdout, stderr } = await execAsync(
-      `docker build -t ${tag} -f ${join(buildDir, "Dockerfile")} ${buildDir}`,
+      `docker build -t ${tag} -f "${join(buildDir, "Dockerfile")}" "${buildDir}"`,
       { timeout: 300000 }
     )
 
@@ -69,20 +70,11 @@ export async function buildImage(params: {
 
     log(`Image built successfully: ${tag}`)
 
-    return {
-      success: true,
-      imageTag: tag,
-      logs,
-    }
+    return { success: true, imageTag: tag, logs }
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : "Unknown error"
     logs.push(`Build failed: ${errMsg}`)
-
-    return {
-      success: false,
-      logs,
-      error: errMsg,
-    }
+    return { success: false, logs, error: errMsg }
   }
 }
 
@@ -106,11 +98,7 @@ export async function runContainer(params: {
       { timeout: 30000 }
     )
 
-    const containerId = stdout.trim()
-    return {
-      containerId,
-      url: `http://localhost:${port}`,
-    }
+    return { containerId: stdout.trim(), url: `http://localhost:${port}` }
   } catch {
     return null
   }

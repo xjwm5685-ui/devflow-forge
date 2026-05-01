@@ -13,7 +13,6 @@ export async function GET(
 
   const { taskId } = await params
 
-  // Verify task ownership
   const task = await prisma.task.findFirst({
     where: { id: taskId, userId: session.id },
     select: { id: true, status: true },
@@ -24,33 +23,27 @@ export async function GET(
 
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
-    start(controller) {
-      // Send initial status
+    async start(controller) {
       controller.enqueue(
         encoder.encode(`data: ${JSON.stringify({ type: "status", status: task.status })}\n\n`)
       )
 
-      // If already completed, send history and close
+      // For completed tasks, load history from DB (survives server restart)
       if (task.status === "COMPLETED" || task.status === "FAILED") {
-        const history = messageBus.getHistory(taskId)
+        const history = await messageBus.loadHistory(taskId)
         for (const msg of history) {
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify(msg)}\n\n`)
-          )
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(msg)}\n\n`))
         }
         controller.enqueue(encoder.encode("data: [DONE]\n\n"))
         controller.close()
         return
       }
 
-      // Subscribe to live messages
+      // For running tasks, stream live messages
       const unsubscribe = messageBus.subscribe(taskId, (message) => {
         try {
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify(message)}\n\n`)
-          )
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`))
 
-          // Close stream when workflow completes
           if (message.type === "response" && message.content.includes("Workflow completed")) {
             setTimeout(() => {
               controller.enqueue(encoder.encode("data: [DONE]\n\n"))
@@ -68,7 +61,6 @@ export async function GET(
         }
       })
 
-      // Cleanup on disconnect
       request.signal.addEventListener("abort", () => {
         unsubscribe()
         try { controller.close() } catch {}

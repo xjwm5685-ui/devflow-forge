@@ -7,8 +7,12 @@ function getSessionSecret(): Uint8Array {
     if (process.env.NODE_ENV === "production") {
       throw new Error("FATAL: SESSION_SECRET is not set. Refusing to start in production without it.")
     }
-    // Dev-only fallback
-    return new TextEncoder().encode("dev-session-secret-change-in-production-1234")
+    // Dev: use random secret per restart, warn once
+    if (!(globalThis as Record<string, unknown>).__devSecretWarned) {
+      console.warn("[Auth] SESSION_SECRET not set. Using random dev secret. Sessions will not persist across restarts.")
+      ;(globalThis as Record<string, unknown>).__devSecretWarned = true
+    }
+    return new TextEncoder().encode(crypto.randomUUID())
   }
   return new TextEncoder().encode(secret)
 }

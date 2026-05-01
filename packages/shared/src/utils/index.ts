@@ -1,5 +1,5 @@
 export function generateId(): string {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+  return crypto.randomUUID()
 }
 
 export function sleep(ms: number): Promise<void> {
@@ -23,7 +23,6 @@ export function truncate(str: string, maxLength: number): string {
 }
 
 export function estimateTokens(text: string): number {
-  // Rough approximation: ~4 chars per token for English
   return Math.ceil(text.length / 4)
 }
 

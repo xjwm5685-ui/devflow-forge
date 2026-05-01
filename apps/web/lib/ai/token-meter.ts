@@ -10,28 +10,28 @@ interface TokenUsageParams {
 
 class TokenMeter {
   async record(params: TokenUsageParams): Promise<void> {
-    await prisma.tokenUsage.create({
-      data: {
-        userId: params.userId,
-        model: params.model,
-        inputTokens: params.inputTokens,
-        outputTokens: params.outputTokens,
-        costCents: this.calculateCost(params.model, params.inputTokens, params.outputTokens),
-        taskId: params.taskId,
-      },
-    })
+    const totalTokens = params.inputTokens + params.outputTokens
+    const costCents = this.calculateCost(params.model, params.inputTokens, params.outputTokens)
 
-    // Also update task token usage if taskId provided
-    if (params.taskId) {
-      await prisma.task.update({
-        where: { id: params.taskId },
+    await prisma.$transaction(async (tx) => {
+      await tx.tokenUsage.create({
         data: {
-          tokenUsage: {
-            increment: params.inputTokens + params.outputTokens,
-          },
+          userId: params.userId,
+          model: params.model,
+          inputTokens: params.inputTokens,
+          outputTokens: params.outputTokens,
+          costCents,
+          taskId: params.taskId,
         },
-      }).catch(console.error)
-    }
+      })
+
+      if (params.taskId) {
+        await tx.task.update({
+          where: { id: params.taskId },
+          data: { tokenUsage: { increment: totalTokens } },
+        })
+      }
+    })
   }
 
   private calculateCost(model: string, inputTokens: number, outputTokens: number): number {

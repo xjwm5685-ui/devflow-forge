@@ -1,5 +1,19 @@
 import { z } from "zod"
 
+export const workflowNodeSchema = z.object({
+  id: z.string(),
+  type: z.string(),
+  position: z.object({ x: z.number(), y: z.number() }),
+  data: z.record(z.unknown()),
+})
+
+export const workflowEdgeSchema = z.object({
+  id: z.string(),
+  source: z.string(),
+  target: z.string(),
+  type: z.string().optional(),
+  animated: z.boolean().optional(),
+})
 
 export const createProjectSchema = z.object({
   name: z.string().min(1).max(100),
@@ -17,8 +31,8 @@ export const createWorkflowSchema = z.object({
   description: z.string().max(500).optional(),
   projectId: z.string(),
   definition: z.object({
-    nodes: z.array(z.any()),
-    edges: z.array(z.any()),
+    nodes: z.array(workflowNodeSchema),
+    edges: z.array(workflowEdgeSchema),
     viewport: z.object({ x: z.number(), y: z.number(), zoom: z.number() }).optional(),
   }),
   isTemplate: z.boolean().default(false),

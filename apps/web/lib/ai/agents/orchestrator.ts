@@ -88,9 +88,6 @@ export class Orchestrator {
             conversationHistory: messageBus.getHistory(taskId),
           })
 
-          // Result captured for potential feedback loop
-          void result.content
-
           // QA agent can trigger re-execution of coder
           if (agentName === "qa") {
             const needsChanges = result.content.toLowerCase().includes("needs_changes") ||

@@ -7,23 +7,24 @@ class MessageBus {
   private history: Map<string, AgentMessage[]> = new Map()
 
   async publish(taskId: string, message: AgentMessage): Promise<void> {
-    // Store in memory
     const messages = this.history.get(taskId) ?? []
     messages.push(message)
     this.history.set(taskId, messages)
 
-    // Emit for real-time subscribers
     this.emitter.emit(`task:${taskId}`, message)
 
-    // Persist to database
+    // Persist full message data to database
     await prisma.agentMessage.create({
       data: {
         id: message.id,
         taskId: message.taskId,
         agentName: message.from,
-        role: message.type === "response" ? "assistant" : "user",
+        role: message.type,
         content: message.content,
-        metadata: JSON.stringify(message.metadata),
+        metadata: JSON.stringify({
+          ...message.metadata,
+          to: message.to,
+        }),
       },
     }).catch(console.error)
   }
@@ -44,15 +45,18 @@ class MessageBus {
       orderBy: { createdAt: "asc" },
     })
 
-    const messages: AgentMessage[] = dbMessages.map((m) => ({
-      id: m.id,
-      taskId: m.taskId,
-      from: m.agentName as AgentName,
-      to: "orchestrator" as const,
-      type: m.role === "assistant" ? "response" : "request",
-      content: m.content,
-      metadata: JSON.parse(m.metadata ?? "{}"),
-    }))
+    const messages: AgentMessage[] = dbMessages.map((m) => {
+      const meta = JSON.parse(m.metadata ?? "{}")
+      return {
+        id: m.id,
+        taskId: m.taskId,
+        from: m.agentName as AgentName,
+        to: (meta.to ?? "orchestrator") as AgentName | "orchestrator",
+        type: m.role as AgentMessage["type"],
+        content: m.content,
+        metadata: meta,
+      }
+    })
 
     this.history.set(taskId, messages)
     return messages
@@ -63,7 +67,6 @@ class MessageBus {
   }
 }
 
-// Singleton instance
 export const messageBus = new MessageBus()
 
 export function createAgentMessage(
@@ -75,7 +78,7 @@ export function createAgentMessage(
   metadata: AgentMessage["metadata"] = { timestamp: Date.now() }
 ): AgentMessage {
   return {
-    id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    id: crypto.randomUUID(),
     taskId,
     from,
     to,
