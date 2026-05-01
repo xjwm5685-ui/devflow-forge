@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
 
 interface Settings { openaiApiKey: string; openaiBaseUrl: string; openaiModel: string; demoMode: boolean; hasApiKey: boolean }
 
@@ -47,12 +46,12 @@ export default function SettingsPage() {
 
   return (
     <div className="p-8 max-w-2xl">
-      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
+      <div>
         <h1 className="text-xl font-semibold text-zinc-100 tracking-tight">设置</h1>
         <p className="text-sm text-zinc-500 mt-1">配置 AI 模型和 API 密钥</p>
-      </motion.div>
+      </div>
 
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 mt-6">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 mt-6">
         <h2 className="text-sm font-semibold text-zinc-100 mb-4">运行模式</h2>
         <div className="flex gap-3">
           {[{ val: true, label: "演示模式", desc: "使用预录回复，无需 API 密钥" }, { val: false, label: "实时模式", desc: "调用真实 AI 模型，需要 API 密钥" }].map((m) => (
@@ -63,10 +62,10 @@ export default function SettingsPage() {
             </button>
           ))}
         </div>
-      </motion.div>
+      </div>
 
       {!settings.demoMode && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 mt-4">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 mt-4">
           <h2 className="text-sm font-semibold text-zinc-100 mb-4">API 提供商</h2>
           <div className="grid grid-cols-4 gap-2">
             {PROVIDERS.map((p) => (
@@ -74,11 +73,11 @@ export default function SettingsPage() {
                 className={`p-3 rounded-lg border text-[13px] font-medium transition-colors ${selectedProvider === p.name ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-400" : "bg-zinc-800/50 border-zinc-700 text-zinc-400 hover:border-zinc-600"}`}>{p.name}</button>
             ))}
           </div>
-        </motion.div>
+        </div>
       )}
 
       {!settings.demoMode && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 mt-4">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 mt-4">
           <h2 className="text-sm font-semibold text-zinc-100 mb-4">API 配置</h2>
           <div className="space-y-4">
             <div>
@@ -101,25 +100,25 @@ export default function SettingsPage() {
               )}
             </div>
           </div>
-        </motion.div>
+        </div>
       )}
 
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="flex items-center gap-3 mt-6">
+      <div className="flex items-center gap-3 mt-6">
         <button onClick={handleSave} disabled={saving} className="px-5 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-500 transition-colors text-sm font-medium disabled:opacity-50">{saving ? "保存中..." : saved ? "已保存" : "保存设置"}</button>
         {!settings.demoMode && settings.hasApiKey && <button onClick={handleTest} disabled={testing} className="px-5 py-2 bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-md hover:text-zinc-100 transition-colors text-sm font-medium disabled:opacity-50">{testing ? "测试中..." : "测试连接"}</button>}
         {saved && <span className="text-xs text-emerald-400">设置已保存，立即生效</span>}
-      </motion.div>
+      </div>
 
       {testResult && <div className={`mt-4 p-3 rounded-md text-sm ${testResult.ok ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>{testResult.message}</div>}
 
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }} className="mt-8 bg-zinc-900 border border-zinc-800 rounded-lg p-5">
+      <div className="mt-8 bg-zinc-900 border border-zinc-800 rounded-lg p-5">
         <h3 className="text-sm font-semibold text-zinc-100 mb-3">说明</h3>
         <div className="space-y-2 text-xs text-zinc-500">
           <p><strong className="text-zinc-400">演示模式：</strong>智能体返回预录回复，无需 API 密钥，适合体验界面和工作流。</p>
           <p><strong className="text-zinc-400">实时模式：</strong>调用真实 AI 模型。支持所有 OpenAI 兼容接口。</p>
           <p><strong className="text-zinc-400">自动降级：</strong>如果实时模式 API 调用失败，智能体会自动降级到演示回复。</p>
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }

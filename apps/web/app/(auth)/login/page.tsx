@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { motion } from "framer-motion"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -30,11 +29,10 @@ export default function LoginPage() {
           </div>
           <div className="space-y-4">
             {["架构师 Agent 自动分析代码库", "编码 Agent 生成并修改代码", "QA Agent 自动生成测试用例", "DevOps Agent 一键部署上线"].map((text, i) => (
-              <motion.div key={i} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 + i * 0.1 }}
-                className="flex items-center gap-3 text-zinc-400">
+              <div key={i} className="flex items-center gap-3 text-zinc-400 animate-fade-in" style={{ animationDelay: `${0.3 + i * 0.1}s` }}>
                 <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 flex-shrink-0" />
                 <span className="text-sm">{text}</span>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
@@ -42,7 +40,7 @@ export default function LoginPage() {
 
       {/* Right - Login Form */}
       <div className="flex-1 flex items-center justify-center px-6 bg-zinc-950">
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="w-full max-w-sm">
+        <div className="w-full max-w-sm animate-fade-in">
           <div className="lg:hidden mb-10">
             <div className="w-10 h-10 rounded-lg bg-indigo-500/15 flex items-center justify-center mb-4 border border-indigo-500/20">
               <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -68,7 +66,7 @@ export default function LoginPage() {
           </button>
 
           <p className="text-xs text-zinc-600 text-center mt-6">登录即表示你同意我们的服务条款</p>
-        </motion.div>
+        </div>
       </div>
     </div>
   )

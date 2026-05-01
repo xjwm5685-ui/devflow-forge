@@ -2,18 +2,17 @@
 
 import { trpc } from "@/lib/trpc/client"
 import Link from "next/link"
-import { motion } from "framer-motion"
 import { Icon } from "@/components/shared/icon"
 
 function StatCard({ label, value, iconName }: { label: string; value: string | number; iconName: string }) {
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
+    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 animate-fade-in">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs text-zinc-500 uppercase tracking-wider">{label}</span>
         <span className="text-zinc-600"><Icon name={iconName} size={18} /></span>
       </div>
       <div className="text-2xl font-semibold text-zinc-100 tracking-tight">{value}</div>
-    </motion.div>
+    </div>
   )
 }
 
@@ -25,10 +24,10 @@ export default function DashboardPage() {
 
   return (
     <div className="p-8 max-w-6xl">
-      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+      <div className="mb-8 animate-fade-in">
         <h1 className="text-xl font-semibold text-zinc-100 tracking-tight">概览</h1>
         <p className="text-sm text-zinc-500 mt-1">欢迎回来，{user?.login ?? "用户"}</p>
-      </motion.div>
+      </div>
 
       <div className="grid grid-cols-4 gap-4 mb-8">
         <StatCard label="项目" value={stats?.projectCount ?? 0} iconName="folder" />
@@ -38,7 +37,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-3 gap-6">
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="col-span-2">
+        <div className="col-span-2 animate-fade-in" style={{ animationDelay: "0.1s" }}>
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg">
             <div className="px-5 py-3.5 border-b border-zinc-800 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-zinc-100">最近任务</h2>
@@ -67,9 +66,9 @@ export default function DashboardPage() {
               {(!tasks || tasks.length === 0) && <div className="px-5 py-10 text-center text-sm text-zinc-600">暂无任务</div>}
             </div>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="space-y-4">
+        <div className="space-y-4 animate-fade-in" style={{ animationDelay: "0.2s" }}>
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg">
             <div className="px-5 py-3.5 border-b border-zinc-800">
               <h2 className="text-sm font-semibold text-zinc-100">智能体状态</h2>
@@ -98,7 +97,7 @@ export default function DashboardPage() {
               </Link>
             ))}
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   )
