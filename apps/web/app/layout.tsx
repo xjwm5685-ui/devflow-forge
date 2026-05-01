@@ -9,8 +9,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-CN" className="h-full">
-      <body className="min-h-full flex flex-col">
+    <html lang="zh-CN" className="h-full dark">
+      <body className="min-h-full flex flex-col bg-zinc-950 text-zinc-100 antialiased" style={{ fontFamily: '-apple-system, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif' }}>
         <TRPCProvider>
           {children}
         </TRPCProvider>
