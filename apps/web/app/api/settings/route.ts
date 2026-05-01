@@ -19,21 +19,13 @@ const DEFAULT_SETTINGS: Settings = {
   demoMode: true,
 }
 
-// Allowlist of trusted API base URLs
-const ALLOWED_BASE_URLS = [
-  "https://api.openai.com/v1",
-  "https://api.deepseek.com/v1",
-  "https://api.xiaomi.com/v1",
-  "https://api.moonshot.cn/v1",
-  "https://open.bigmodel.cn/api/paas/v4",
-  "https://dashscope.aliyuncs.com/compatible-mode/v1",
-  "http://localhost:11434/v1",   // Ollama
-  "http://localhost:11435/v1",   // Ollama alt
-  "http://127.0.0.1:11434/v1",  // Ollama loopback
-]
-
-function isAllowedBaseUrl(url: string): boolean {
-  return ALLOWED_BASE_URLS.some((allowed) => url === allowed)
+function isValidBaseUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === "https:" || parsed.protocol === "http:"
+  } catch {
+    return false
+  }
 }
 
 function loadSettings(): Settings {
@@ -86,11 +78,11 @@ export async function POST(request: Request) {
   const body = await request.json()
   const current = loadSettings()
 
-  // Validate base URL against allowlist
+  // Validate base URL format
   const newBaseUrl = body.openaiBaseUrl ?? current.openaiBaseUrl
-  if (newBaseUrl && !isAllowedBaseUrl(newBaseUrl)) {
+  if (newBaseUrl && !isValidBaseUrl(newBaseUrl)) {
     return NextResponse.json(
-      { error: "Base URL not in allowlist. Add it to ALLOWED_BASE_URLS in route.ts first." },
+      { error: "Invalid Base URL. Must be a valid http:// or https:// URL." },
       { status: 400 }
     )
   }
