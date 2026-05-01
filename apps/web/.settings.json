@@ -1,0 +1,6 @@
+{
+  "openaiApiKey": "",
+  "openaiBaseUrl": "https://api.deepseek.com/v1",
+  "openaiModel": "deepseek-chat",
+  "demoMode": true
+}

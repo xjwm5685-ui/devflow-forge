@@ -1,0 +1,137 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  githubId    Int      @unique
+  login       String
+  email       String?
+  avatarUrl   String?
+  accessToken String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  projects    Project[]
+  tasks       Task[]
+  documents   Document[]
+  deployments Deployment[]
+  tokenUsage  TokenUsage[]
+}
+
+model Project {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  githubRepo   String?
+  githubBranch String?  @default("main")
+  userId       String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User        @relation(fields: [userId], references: [id])
+  workflows    Workflow[]
+  tasks        Task[]
+  documents    Document[]
+  deployments  Deployment[]
+}
+
+model Workflow {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  projectId   String
+  definition  String   @default("{}") // JSON string of React Flow graph
+  isTemplate  Boolean  @default(false)
+  templateTag String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project     Project  @relation(fields: [projectId], references: [id])
+  tasks       Task[]
+}
+
+model Task {
+  id           String     @id @default(cuid())
+  projectId    String
+  workflowId   String?
+  userId       String
+  status       String     @default("PENDING") // PENDING, RUNNING, COMPLETED, FAILED, CANCELLED
+  type         String     // REFACTOR, GENERATE_CODE, RUN_TESTS, DEPLOY, GENERATE_DOCS, FULL_PIPELINE
+  input        String     @default("{}") // JSON
+  output       String?    // JSON
+  agentTrace   String?    // JSON array of agent messages
+  tokenUsage   Int        @default(0)
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  project      Project    @relation(fields: [projectId], references: [id])
+  workflow     Workflow?  @relation(fields: [workflowId], references: [id])
+  user         User       @relation(fields: [userId], references: [id])
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  title     String
+  content   String   @default("{}") // JSON
+  diagrams  String?  // JSON array of diagram data
+  audioUrl  String?
+  videoUrl  String?
+  status    String   @default("DRAFT") // DRAFT, GENERATING, COMPLETED, FAILED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project   Project  @relation(fields: [projectId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Deployment {
+  id          String   @id @default(cuid())
+  projectId   String
+  userId      String
+  environment String   @default("staging")
+  status      String   @default("PENDING") // PENDING, BUILDING, PUSHING, DEPLOYING, RUNNING, FAILED, STOPPED
+  dockerImage String?
+  cicdConfig  String?  // JSON
+  logs        String?  // JSON array of log lines
+  url         String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project     Project  @relation(fields: [projectId], references: [id])
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model TokenUsage {
+  id          String   @id @default(cuid())
+  userId      String
+  model       String
+  inputTokens Int
+  outputTokens Int
+  costCents   Int      @default(0)
+  taskId      String?
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model AgentMessage {
+  id        String   @id @default(cuid())
+  taskId    String
+  agentName String
+  role      String
+  content   String
+  metadata  String?  // JSON
+  createdAt DateTime @default(now())
+}

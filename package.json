@@ -1,0 +1,32 @@
+{
+  "name": "devflow-forge",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.33.2",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter @devflow/web dev",
+    "build": "pnpm --filter @devflow/web build",
+    "start": "pnpm --filter @devflow/web start",
+    "db:generate": "pnpm --filter @devflow/db generate",
+    "db:push": "pnpm --filter @devflow/db push",
+    "db:seed": "pnpm --filter @devflow/db seed",
+    "db:reset": "pnpm --filter @devflow/db reset",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "clean": "pnpm -r exec rm -rf node_modules .next dist"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma",
+      "esbuild",
+      "sharp",
+      "unrs-resolver"
+    ]
+  }
+}
