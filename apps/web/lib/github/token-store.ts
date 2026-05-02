@@ -61,7 +61,7 @@ export async function getUserAccessToken(userId: string): Promise<string | null>
   const stored = user?.accessToken ?? null
   if (stored && !stored.startsWith(PREFIX) && !isMockToken(stored)) {
     const encrypted = encryptToken(stored)
-    await prisma.user.update({ where: { id: userId }, data: { accessToken: encrypted } }).catch((err) => {
+    await prisma.user.update({ where: { id: userId }, data: { accessToken: encrypted } }).catch((err: unknown) => {
       console.error("[TokenStore] Failed to re-encrypt token:", err instanceof Error ? err.message : err)
     })
     return stored

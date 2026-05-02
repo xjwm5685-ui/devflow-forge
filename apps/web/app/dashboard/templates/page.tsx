@@ -58,8 +58,8 @@ export default function TemplatesPage() {
   const [newDescription, setNewDescription] = useState("")
   const [newProjectId, setNewProjectId] = useState("")
 
-  const myTemplates = templates?.filter((t) => t.project?.userId === user?.id && t.templateTag === "custom") ?? []
-  const builtInTemplates = templates?.filter((t) => t.templateTag !== "custom") ?? []
+  const myTemplates = templates?.filter((t: any) => t.project?.userId === user?.id && t.templateTag === "custom") ?? []
+  const builtInTemplates = templates?.filter((t: any) => t.templateTag !== "custom") ?? []
 
   const handleUseTemplate = (templateId: string, templateName: string, definition: WorkflowDefinition) => {
     if (!projects || projects.length === 0) {
@@ -165,7 +165,7 @@ export default function TemplatesPage() {
           {selectedProject === template.id ? (
             <div className="space-y-2">
               <div className="eyebrow" style={{ marginBottom: 4 }}>选择项目</div>
-              {projects?.map((p) => (
+              {projects?.map((p: any) => (
                 <button
                   key={p.id}
                   onClick={() => confirmCreate(template.id, template.name, template.definition, p.id)}
@@ -257,7 +257,7 @@ export default function TemplatesPage() {
                 placeholder="选择项目"
                 options={[
                   { value: "", label: "选择项目" },
-                  ...(projects?.map((project) => ({ value: project.id, label: project.name })) ?? []),
+                  ...(projects?.map((project: any) => ({ value: project.id, label: project.name })) ?? []),
                 ]}
               />
             </div>
@@ -283,7 +283,7 @@ export default function TemplatesPage() {
             <span className="chip">{myTemplates.length}</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 14 }}>
-            {myTemplates.map((t, i) => renderTemplate(t, i))}
+            {myTemplates.map((t: any, i: number) => renderTemplate(t, i))}
           </div>
         </section>
       )}
@@ -298,7 +298,7 @@ export default function TemplatesPage() {
           </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 14 }}>
-          {builtInTemplates.map((t, i) => renderTemplate(t, i))}
+          {builtInTemplates.map((t: any, i: number) => renderTemplate(t, i))}
         </div>
       </section>
     </div>

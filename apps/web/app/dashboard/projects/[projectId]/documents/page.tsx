@@ -21,7 +21,7 @@ export default function DocumentsPage() {
     {
       refetchInterval: (query) => {
         const items = query.state.data
-        if (!items || items.some((d) => d.status === "GENERATING" || d.status === "PENDING")) return 2000
+        if (!items || items.some((d: any) => d.status === "GENERATING" || d.status === "PENDING")) return 2000
         return false
       },
     }
@@ -135,7 +135,7 @@ export default function DocumentsPage() {
       )}
 
       <div className="space-y-4">
-        {documents?.map((doc, idx) => {
+        {documents?.map((doc: any, idx: number) => {
           const content = safeJsonParse<{ sections?: Array<{ heading: string; content: string }> }>(doc.content, {})
           const diagrams = safeJsonParse<Array<{ title: string; mermaid: string }>>(doc.diagrams, [])
           const tone = STATUS_TONE[doc.status] ?? STATUS_TONE.DRAFT

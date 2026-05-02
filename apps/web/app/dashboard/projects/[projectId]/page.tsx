@@ -202,7 +202,7 @@ export default function ProjectDetailPage() {
           <Link href={`/dashboard/projects/${projectId}/workflows`} style={{ fontSize: 11.5, color: "rgb(165 180 252)", fontFamily: "var(--font-mono)" }}>VIEW ALL →</Link>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 14 }}>
-          {project.workflows.slice(0, 4).map((workflow, i) => {
+          {project.workflows.slice(0, 4).map((workflow: any, i: number) => {
             const def = JSON.parse(workflow.definition)
             return (
               <Link
@@ -264,7 +264,7 @@ export default function ProjectDetailPage() {
           </div>
         </div>
         <div className="glass glass-edge" style={{ overflow: "hidden" }}>
-          {project.tasks.map((task, i) => {
+          {project.tasks.map((task: any, i: number) => {
             const input = task.input ? JSON.parse(task.input) : null
             const typeIcon = task.type === "REFACTOR" ? "refactor" : task.type === "GENERATE_DOCS" ? "docs" : task.type === "DEPLOY" ? "deploy" : "bolt"
             const typeAccent = task.type === "REFACTOR" ? "rgba(165,180,252,0.4)" : task.type === "GENERATE_DOCS" ? "rgba(251,191,36,0.4)" : task.type === "DEPLOY" ? "rgba(134,239,172,0.4)" : "rgba(255,255,255,0.15)"

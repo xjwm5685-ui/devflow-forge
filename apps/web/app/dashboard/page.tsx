@@ -131,7 +131,7 @@ export default function DashboardPage() {
           </div>
           <div className="divider" />
           <div>
-            {tasks?.slice(0, 5).map((task, i) => (
+            {tasks?.slice(0, 5).map((task: any, i: number) => (
               <div
                 key={task.id}
                 className="reveal"

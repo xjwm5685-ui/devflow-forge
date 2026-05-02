@@ -288,7 +288,7 @@ export default function ProjectsPage() {
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 16 }}>
-          {projects?.map((project, i) => {
+          {projects?.map((project: any, i: number) => {
             const accent = ACCENTS[i % ACCENTS.length]
             const initials = project.name.slice(0, 2).toUpperCase()
             return (

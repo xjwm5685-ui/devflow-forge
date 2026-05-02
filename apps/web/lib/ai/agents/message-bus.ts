@@ -91,7 +91,7 @@ class MessageBus {
       orderBy: { createdAt: "asc" },
     })
 
-    const history: AgentMessage[] = rows.map((row) => {
+    const history: AgentMessage[] = rows.map((row: any) => {
       let metadata: AgentMessage["metadata"] = { timestamp: row.createdAt.getTime() }
       if (row.metadata) {
         try {

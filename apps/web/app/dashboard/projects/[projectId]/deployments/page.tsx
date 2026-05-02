@@ -42,7 +42,7 @@ export default function DeploymentsPage() {
     {
       refetchInterval: (query) => {
         const items = query.state.data
-        if (!items || items.some((d) => ["PENDING", "BUILDING", "PUSHING", "DEPLOYING"].includes(d.status))) {
+        if (!items || items.some((d: any) => ["PENDING", "BUILDING", "PUSHING", "DEPLOYING"].includes(d.status))) {
           return 2000
         }
         return false
@@ -80,7 +80,7 @@ export default function DeploymentsPage() {
       </div>
 
       <div className="space-y-4">
-        {deployments?.map((deploy, idx) => {
+        {deployments?.map((deploy: any, idx: number) => {
           const currentStageIndex = STAGES.indexOf(deploy.status as typeof STAGES[number])
           const logs: string[] = deploy.logs ? JSON.parse(deploy.logs) : []
           const isFailed = deploy.status === "FAILED"

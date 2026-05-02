@@ -41,7 +41,7 @@ export const workflowRouter = router({
         orderBy: { updatedAt: "desc" },
       })
 
-      return workflows.map((w) => ({
+      return workflows.map((w: any) => ({
         ...w,
         definition: parseWorkflowDefinition(w.definition),
       }))
@@ -62,7 +62,7 @@ export const workflowRouter = router({
       orderBy: { name: "asc" },
     })
 
-    return workflows.map((w) => ({
+    return workflows.map((w: any) => ({
       ...w,
       definition: parseWorkflowDefinition(w.definition),
     }))

@@ -56,7 +56,7 @@ export default function WorkflowsPage() {
             <span className="chip">{workflows.length}</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 14 }}>
-            {workflows.map((wf, i) => {
+            {workflows.map((wf: any, i: number) => {
               const def = typeof wf.definition === "string" ? JSON.parse(wf.definition) : wf.definition
               const accent = ACCENTS[i % ACCENTS.length]
               return (
@@ -116,7 +116,7 @@ export default function WorkflowsPage() {
           </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 14 }}>
-          {templates?.filter(t => t.isTemplate).map((template, i) => {
+          {templates?.filter((t: any) => t.isTemplate).map((template: any, i: number) => {
             const def = typeof template.definition === "string" ? JSON.parse(template.definition) : template.definition
             const accent = ACCENTS[i % ACCENTS.length]
             return (
