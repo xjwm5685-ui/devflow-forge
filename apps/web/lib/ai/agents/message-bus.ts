@@ -1,5 +1,4 @@
 import type { AgentMessage, AgentName } from "@devflow/shared"
-import type { AgentMessage as DbAgentMessage } from "@prisma/client"
 import { prisma } from "@/lib/db"
 
 type MessageHandler = (message: AgentMessage) => void
@@ -92,7 +91,7 @@ class MessageBus {
       orderBy: { createdAt: "asc" },
     })
 
-    const history: AgentMessage[] = rows.map((row: DbAgentMessage) => {
+    const history: AgentMessage[] = rows.map((row: (typeof rows)[number]) => {
       let metadata: AgentMessage["metadata"] = { timestamp: row.createdAt.getTime() }
       if (row.metadata) {
         try {
