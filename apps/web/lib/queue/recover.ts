@@ -12,7 +12,7 @@ export async function recoverStuckTasks(): Promise<void> {
 
   if (stuckTasks.length > 0) {
     await prisma.task.updateMany({
-      where: { id: { in: stuckTasks.map((t: any) => t.id) } },
+      where: { id: { in: stuckTasks.map((t: { id: string }) => t.id) } },
       data: { status: "FAILED", completedAt: new Date() },
     })
     console.log(`[Recovery] Reset ${stuckTasks.length} stuck tasks to FAILED`)
@@ -25,7 +25,7 @@ export async function recoverStuckTasks(): Promise<void> {
 
   if (stuckDeploys.length > 0) {
     await prisma.deployment.updateMany({
-      where: { id: { in: stuckDeploys.map((d: any) => d.id) } },
+      where: { id: { in: stuckDeploys.map((d: { id: string }) => d.id) } },
       data: { status: "FAILED", completedAt: new Date() },
     })
     console.log(`[Recovery] Reset ${stuckDeploys.length} stuck deployments to FAILED`)
@@ -38,7 +38,7 @@ export async function recoverStuckTasks(): Promise<void> {
 
   if (stuckDocs.length > 0) {
     await prisma.document.updateMany({
-      where: { id: { in: stuckDocs.map((d: any) => d.id) } },
+      where: { id: { in: stuckDocs.map((d: { id: string }) => d.id) } },
       data: { status: "FAILED" },
     })
     console.log(`[Recovery] Reset ${stuckDocs.length} stuck documents to FAILED`)

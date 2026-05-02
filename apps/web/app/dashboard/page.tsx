@@ -1,8 +1,11 @@
 "use client"
 
 import { trpc } from "@/lib/trpc/client"
+import type { RouterOutputs } from "@/lib/trpc/types"
 import Link from "next/link"
 import { Icon } from "@/components/shared/icon"
+
+type TaskListItem = RouterOutputs["task"]["list"][number]
 
 const STATUS_LABELS: Record<string, { label: string; tone: string }> = {
   COMPLETED: { label: "完成", tone: "good" },
@@ -131,7 +134,7 @@ export default function DashboardPage() {
           </div>
           <div className="divider" />
           <div>
-            {tasks?.slice(0, 5).map((task: any, i: number) => (
+            {tasks?.slice(0, 5).map((task: TaskListItem, i: number) => (
               <div
                 key={task.id}
                 className="reveal"

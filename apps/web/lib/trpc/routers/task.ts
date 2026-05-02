@@ -25,7 +25,7 @@ export const taskRouter = router({
         take: input?.limit ?? 20,
       })
 
-      return tasks.map((t: any) => ({
+      return tasks.map((t: (typeof tasks)[number]) => ({
         ...t,
         tokenUsageTotal: t._count.tokenUsage,
       }))

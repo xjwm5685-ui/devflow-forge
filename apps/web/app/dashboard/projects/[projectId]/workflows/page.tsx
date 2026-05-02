@@ -1,9 +1,13 @@
 "use client"
 
 import { trpc } from "@/lib/trpc/client"
+import type { RouterOutputs } from "@/lib/trpc/types"
 import { useParams } from "next/navigation"
 import type { WorkflowDefinition } from "@devflow/shared"
 import Link from "next/link"
+
+type ProjectWorkflow = NonNullable<RouterOutputs["project"]["byId"]>["workflows"][number]
+type WorkflowTemplate = RouterOutputs["workflow"]["templates"][number]
 
 const ACCENTS = [
   "rgba(165,180,252,0.45)",
@@ -56,7 +60,7 @@ export default function WorkflowsPage() {
             <span className="chip">{workflows.length}</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 14 }}>
-            {workflows.map((wf: any, i: number) => {
+            {workflows.map((wf: ProjectWorkflow, i: number) => {
               const def = typeof wf.definition === "string" ? JSON.parse(wf.definition) : wf.definition
               const accent = ACCENTS[i % ACCENTS.length]
               return (
@@ -116,7 +120,7 @@ export default function WorkflowsPage() {
           </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 14 }}>
-          {templates?.filter((t: any) => t.isTemplate).map((template: any, i: number) => {
+          {templates?.filter((t: WorkflowTemplate) => t.isTemplate).map((template: WorkflowTemplate, i: number) => {
             const def = typeof template.definition === "string" ? JSON.parse(template.definition) : template.definition
             const accent = ACCENTS[i % ACCENTS.length]
             return (

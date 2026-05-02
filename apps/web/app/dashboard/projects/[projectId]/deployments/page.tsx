@@ -1,8 +1,11 @@
 "use client"
 
 import { trpc } from "@/lib/trpc/client"
+import type { RouterOutputs } from "@/lib/trpc/types"
 import { useParams } from "next/navigation"
 import Link from "next/link"
+
+type Deployment = RouterOutputs["deployment"]["list"][number]
 
 const STAGES = ["PENDING", "BUILDING", "PUSHING", "DEPLOYING", "RUNNING"] as const
 
@@ -42,7 +45,7 @@ export default function DeploymentsPage() {
     {
       refetchInterval: (query) => {
         const items = query.state.data
-        if (!items || items.some((d: any) => ["PENDING", "BUILDING", "PUSHING", "DEPLOYING"].includes(d.status))) {
+        if (!items || items.some((d: Deployment) => ["PENDING", "BUILDING", "PUSHING", "DEPLOYING"].includes(d.status))) {
           return 2000
         }
         return false
@@ -80,7 +83,7 @@ export default function DeploymentsPage() {
       </div>
 
       <div className="space-y-4">
-        {deployments?.map((deploy: any, idx: number) => {
+        {deployments?.map((deploy: Deployment, idx: number) => {
           const currentStageIndex = STAGES.indexOf(deploy.status as typeof STAGES[number])
           const logs: string[] = deploy.logs ? JSON.parse(deploy.logs) : []
           const isFailed = deploy.status === "FAILED"

@@ -1,10 +1,13 @@
 "use client"
 
 import { trpc } from "@/lib/trpc/client"
+import type { RouterOutputs } from "@/lib/trpc/types"
 import { useParams } from "next/navigation"
 import { useState } from "react"
 import { safeJsonParse } from "@/lib/utils/safe-json"
 import Link from "next/link"
+
+type DocumentItem = RouterOutputs["document"]["list"][number]
 
 const STATUS_TONE: Record<string, { bg: string; fg: string; ring: string; label: string }> = {
   COMPLETED:  { bg: "rgba(134,239,172,0.16)", fg: "rgb(134 239 172)", ring: "rgba(134,239,172,0.32)", label: "已完成" },
@@ -21,7 +24,7 @@ export default function DocumentsPage() {
     {
       refetchInterval: (query) => {
         const items = query.state.data
-        if (!items || items.some((d: any) => d.status === "GENERATING" || d.status === "PENDING")) return 2000
+        if (!items || items.some((d: DocumentItem) => d.status === "GENERATING" || d.status === "PENDING")) return 2000
         return false
       },
     }
@@ -135,7 +138,7 @@ export default function DocumentsPage() {
       )}
 
       <div className="space-y-4">
-        {documents?.map((doc: any, idx: number) => {
+        {documents?.map((doc: DocumentItem, idx: number) => {
           const content = safeJsonParse<{ sections?: Array<{ heading: string; content: string }> }>(doc.content, {})
           const diagrams = safeJsonParse<Array<{ title: string; mermaid: string }>>(doc.diagrams, [])
           const tone = STATUS_TONE[doc.status] ?? STATUS_TONE.DRAFT

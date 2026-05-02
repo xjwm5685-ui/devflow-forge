@@ -2,9 +2,12 @@
 
 import { CustomSelect } from "@/components/ui/custom-select"
 import { trpc } from "@/lib/trpc/client"
+import type { RouterOutputs } from "@/lib/trpc/types"
 import type { GitHubRepo } from "@devflow/shared"
 import Link from "next/link"
 import { useMemo, useState } from "react"
+
+type ProjectListItem = RouterOutputs["project"]["list"][number]
 
 type PanelMode = "manual" | "github" | null
 
@@ -288,7 +291,7 @@ export default function ProjectsPage() {
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 16 }}>
-          {projects?.map((project: any, i: number) => {
+          {projects?.map((project: ProjectListItem, i: number) => {
             const accent = ACCENTS[i % ACCENTS.length]
             const initials = project.name.slice(0, 2).toUpperCase()
             return (
