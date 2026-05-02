@@ -5,22 +5,40 @@ interface ProjectFiles {
   content: string
 }
 
-type ProjectType = "node" | "python" | "go" | "unknown"
+type ProjectType = "node" | "nextjs" | "python" | "go" | "unknown"
+
+export interface DockerfileResult {
+  dockerfile: string
+  /** Container port the generated Dockerfile listens on. */
+  port: number
+}
 
 function detectProjectType(files: ProjectFiles[]): ProjectType {
   const paths = files.map((f) => f.path)
 
-  if (paths.some((p) => p === "package.json")) return "node"
+  if (paths.some((p) => p === "package.json")) {
+    const pkgFile = files.find((f) => f.path === "package.json")
+    if (pkgFile) {
+      try {
+        const content = JSON.parse(pkgFile.content)
+        if (content.dependencies?.next || content.devDependencies?.next) return "nextjs"
+      } catch {
+        // Fall through to node detection
+      }
+    }
+    return "node"
+  }
   if (paths.some((p) => p === "requirements.txt" || p === "pyproject.toml")) return "python"
   if (paths.some((p) => p === "go.mod")) return "go"
 
-  // Check package.json content for Node indicators
   const pkg = files.find((f) => f.path === "package.json")
   if (pkg) {
     try {
       const content = JSON.parse(pkg.content)
       if (content.dependencies || content.devDependencies) return "node"
-    } catch {}
+    } catch (err) {
+      console.warn("[DockerfileGen] Failed to parse package.json for language detection:", err)
+    }
   }
 
   return "unknown"
@@ -38,24 +56,69 @@ function hasScript(files: ProjectFiles[], script: string): boolean {
   try {
     const content = JSON.parse(pkg.content)
     return !!content.scripts?.[script]
-  } catch {
+  } catch (err) {
+    console.warn("[DockerfileGen] Failed to parse package.json for script detection:", err)
     return false
   }
 }
 
-export function generateDockerfile(files: ProjectFiles[]): string {
+export function generateDockerfile(files: ProjectFiles[]): DockerfileResult {
   const type = detectProjectType(files)
 
   switch (type) {
+    case "nextjs":
+      return { dockerfile: generateNextJsDockerfile(files), port: 3000 }
     case "node":
-      return generateNodeDockerfile(files)
+      return { dockerfile: generateNodeDockerfile(files), port: 3000 }
     case "python":
-      return generatePythonDockerfile()
+      return { dockerfile: generatePythonDockerfile(), port: 8000 }
     case "go":
-      return generateGoDockerfile()
+      return { dockerfile: generateGoDockerfile(), port: 8080 }
     default:
-      return generateGenericDockerfile()
+      return { dockerfile: generateGenericDockerfile(), port: 8080 }
   }
+}
+
+function generateNextJsDockerfile(files: ProjectFiles[]): string {
+  const pm = detectPackageManager(files)
+
+  const installCmd = pm === "pnpm" ? "RUN corepack enable pnpm && pnpm install --frozen-lockfile" :
+                     pm === "yarn" ? "yarn install --frozen-lockfile" :
+                     "npm ci"
+
+  return `# ---- Build stage ----
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+COPY package*.json ${pm === "yarn" ? "yarn.lock" : pm === "pnpm" ? "pnpm-lock.yaml" : "package-lock.json"}* ./
+${installCmd}
+
+COPY . .
+RUN ${pm} run build
+
+# ---- Production stage ----
+FROM node:20-alpine AS production
+WORKDIR /app
+
+RUN addgroup -g 1001 -S appgroup && \\
+    adduser -S appuser -u 1001 -G appgroup
+
+COPY --from=builder --chown=appuser:appgroup /app/next.config.ts ./
+COPY --from=builder --chown=appuser:appgroup /app/public ./public
+COPY --from=builder --chown=appuser:appgroup /app/.next/standalone ./
+COPY --from=builder --chown=appuser:appgroup /app/.next/static ./.next/static
+
+ENV NODE_ENV=production
+ENV PORT=3000
+
+USER appuser
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \\
+  CMD wget -qO- http://localhost:3000/health || exit 1
+
+CMD ["node", "server.js"]
+`
 }
 
 function generateNodeDockerfile(files: ProjectFiles[]): string {

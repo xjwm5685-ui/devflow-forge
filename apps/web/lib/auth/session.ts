@@ -1,13 +1,38 @@
 import { SignJWT, jwtVerify } from "jose"
+import { z } from "zod"
 import { cookies } from "next/headers"
+import { NextResponse } from "next/server"
 import { getSessionSecret } from "./secret"
 
-export interface SessionUser {
-  id: string
-  githubId: number
-  login: string
-  email: string | null
-  avatarUrl: string | null
+export const SessionUserSchema = z.object({
+  id: z.string(),
+  githubId: z.number(),
+  login: z.string(),
+  email: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+})
+
+export type SessionUser = z.infer<typeof SessionUserSchema>
+
+function isLocalHttpUrl(value: string | undefined): boolean {
+  if (!value) return false
+  try {
+    const url = new URL(value)
+    return url.protocol === "http:" && (
+      url.hostname === "localhost" ||
+      url.hostname === "127.0.0.1" ||
+      url.hostname === "::1"
+    )
+  } catch {
+    return false
+  }
+}
+
+export function shouldUseSecureCookies(): boolean {
+  if (process.env.NODE_ENV !== "production") return false
+
+  const appUrl = process.env.NEXTAUTH_URL ?? process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL
+  return !isLocalHttpUrl(appUrl)
 }
 
 export async function createSession(user: SessionUser): Promise<string> {
@@ -17,15 +42,6 @@ export async function createSession(user: SessionUser): Promise<string> {
     .setIssuedAt()
     .setExpirationTime("7d")
     .sign(secret)
-
-  const cookieStore = await cookies()
-  cookieStore.set("session", token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 7,
-    path: "/",
-  })
 
   return token
 }
@@ -38,13 +54,27 @@ export async function getSession(): Promise<SessionUser | null> {
   try {
     const secret = getSessionSecret()
     const { payload } = await jwtVerify(token, secret)
-    return payload.user as SessionUser
-  } catch {
+    const parsed = SessionUserSchema.safeParse(payload.user)
+    if (!parsed.success) {
+      console.error("[Session] JWT payload validation failed:", parsed.error.message)
+      return null
+    }
+    return parsed.data
+  } catch (err) {
+    console.error("[Session] JWT verification failed:", err instanceof Error ? err.message : err)
     return null
   }
 }
 
-export async function destroySession(): Promise<void> {
-  const cookieStore = await cookies()
-  cookieStore.delete("session")
+const SESSION_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: shouldUseSecureCookies(),
+  sameSite: "lax" as const,
+  maxAge: 60 * 60 * 24 * 7,
+  path: "/",
+}
+
+export function setSessionCookie(response: NextResponse, token: string): NextResponse {
+  response.cookies.set("session", token, SESSION_COOKIE_OPTIONS)
+  return response
 }

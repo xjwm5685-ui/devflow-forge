@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { getSession } from "@/lib/auth/session"
 import { callLLM, isLLMConfigured } from "@/lib/ai/client"
+import { checkAiCli } from "@/lib/ai/cli/runner"
+import { loadSettings } from "@/lib/settings"
 
 export async function GET() {
   const session = await getSession()
@@ -8,7 +10,13 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  if (!isLLMConfigured()) {
+  const settings = loadSettings()
+
+  if (settings.aiRuntime === "cli" && !settings.demoMode) {
+    return NextResponse.json(await checkAiCli(settings))
+  }
+
+  if (!(await isLLMConfigured())) {
     return NextResponse.json({
       ok: false,
       message: "No API key configured. Please add your API key in Settings.",

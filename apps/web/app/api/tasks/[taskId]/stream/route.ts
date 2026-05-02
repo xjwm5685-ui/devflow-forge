@@ -48,8 +48,10 @@ export async function GET(
           if (current?.status === "COMPLETED" || current?.status === "FAILED") {
             clearInterval(pollInterval)
             unsubscribe()
-            // Send completion signal
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ id: "__done__", type: "response", content: "Workflow completed", __complete: true, from: "system", to: "user", taskId, metadata: { timestamp: Date.now() } })}\n\n`))
+            const terminalMessage = current.status === "FAILED"
+              ? { id: "__failed__", type: "error", content: "Workflow failed", __complete: true, from: "system", to: "user", taskId, metadata: { timestamp: Date.now() } }
+              : { id: "__done__", type: "response", content: "Workflow completed", __complete: true, from: "system", to: "user", taskId, metadata: { timestamp: Date.now() } }
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(terminalMessage)}\n\n`))
             controller.enqueue(encoder.encode("data: [DONE]\n\n"))
             controller.close()
           }

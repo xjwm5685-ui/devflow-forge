@@ -1,41 +1,56 @@
 import { loginAsDemo } from "@/lib/auth/mock-auth"
-import { redirect } from "next/navigation"
+import { setSessionCookie, shouldUseSecureCookies } from "@/lib/auth/session"
+import { getRedirectGitHubClientId } from "@/lib/github/oauth-config"
+import { getGitHubOAuthScope } from "@/lib/github/oauth-login"
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
 
-export async function GET() {
+function getBaseUrl(request: Request): string {
+  const configuredUrl = process.env.NEXTAUTH_URL ?? process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL
+  if (configuredUrl) return configuredUrl.replace(/\/$/, "")
+
+  return new URL(request.url).origin
+}
+
+export async function GET(request: Request) {
   const isDemo = process.env.DEMO_MODE === "true"
 
   if (isDemo) {
-    await loginAsDemo()
-    redirect("/dashboard")
+    const { token } = await loginAsDemo()
+    return setSessionCookie(
+      NextResponse.redirect(new URL("/dashboard", request.url)),
+      token,
+    )
   }
 
   // Production: real GitHub OAuth
-  const clientId = process.env.GITHUB_CLIENT_ID
+  const clientId = getRedirectGitHubClientId()
   if (!clientId) {
     return NextResponse.json(
-      { error: "GITHUB_CLIENT_ID not configured" },
+      { error: "GITHUB_CLIENT_ID not configured for redirect OAuth. Use Device Flow from the login page or set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET." },
       { status: 500 }
     )
   }
 
-  // Generate CSRF state and store in cookie
   const state = crypto.randomUUID()
-  const cookieStore = await cookies()
-  cookieStore.set("oauth_state", state, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    maxAge: 600, // 10 minutes
-    path: "/",
-  })
+
+  const callbackUrl = `${getBaseUrl(request)}/api/auth/github/callback`
 
   const params = new URLSearchParams({
     client_id: clientId,
-    scope: "repo read:org",
+    redirect_uri: callbackUrl,
+    scope: getGitHubOAuthScope(),
     state,
   })
 
-  redirect(`https://github.com/login/oauth/authorize?${params}`)
+  const response = NextResponse.redirect(
+    `https://github.com/login/oauth/authorize?${params}`
+  )
+  response.cookies.set("oauth_state", state, {
+    httpOnly: true,
+    secure: shouldUseSecureCookies(),
+    sameSite: "lax",
+    maxAge: 600,
+    path: "/",
+  })
+  return response
 }

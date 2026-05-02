@@ -1,56 +1,34 @@
+import { z } from "zod"
 import { NextResponse } from "next/server"
-import { readFileSync, writeFileSync, existsSync } from "fs"
-import { join } from "path"
 import { getSession } from "@/lib/auth/session"
+import {
+  applySettingsToEnv,
+  isValidBaseUrl,
+  loadSettings,
+  saveSettings,
+  toPublicSettings,
+  type AppSettings,
+  type AIRuntime,
+  type CliMode,
+  type CliFallbackBehavior,
+} from "@/lib/settings"
+import { listCliProviderSummaries } from "@/lib/ai/cli/runner"
 
-const SETTINGS_FILE = join(process.cwd(), ".settings.json")
-
-interface Settings {
-  openaiApiKey: string
-  openaiBaseUrl: string
-  openaiModel: string
-  demoMode: boolean
-}
-
-const DEFAULT_SETTINGS: Settings = {
-  openaiApiKey: "",
-  openaiBaseUrl: "https://api.openai.com/v1",
-  openaiModel: "gpt-4o",
-  demoMode: true,
-}
-
-function isValidBaseUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url)
-    return parsed.protocol === "https:" || parsed.protocol === "http:"
-  } catch {
-    return false
-  }
-}
-
-function loadSettings(): Settings {
-  try {
-    if (existsSync(SETTINGS_FILE)) {
-      const raw = readFileSync(SETTINGS_FILE, "utf-8")
-      const parsed = JSON.parse(raw) as Record<string, unknown>
-      // Decode base64-encoded API key
-      if (typeof parsed.openaiApiKey === "string" && parsed.openaiApiKey.startsWith("b64:")) {
-        parsed.openaiApiKey = Buffer.from(parsed.openaiApiKey.slice(4), "base64").toString("utf-8")
-      }
-      return { ...DEFAULT_SETTINGS, ...parsed } as Settings
-    }
-  } catch {}
-  return DEFAULT_SETTINGS
-}
-
-function saveSettings(settings: Settings): void {
-  const toSave = { ...settings }
-  // Obfuscate API key with base64 (not encryption, but avoids plaintext)
-  if (toSave.openaiApiKey) {
-    toSave.openaiApiKey = "b64:" + Buffer.from(toSave.openaiApiKey, "utf-8").toString("base64")
-  }
-  writeFileSync(SETTINGS_FILE, JSON.stringify(toSave, null, 2))
-}
+const settingsUpdateSchema = z.object({
+  openaiApiKey: z.string().trim().max(500).optional(),
+  openaiBaseUrl: z.string().trim().url().optional().or(z.literal("")),
+  openaiModel: z.string().trim().max(100).optional(),
+  demoMode: z.boolean().optional(),
+  aiRuntime: z.enum(["api", "cli"]).optional(),
+  cliProvider: z.string().trim().max(50).optional(),
+  cliModel: z.string().trim().max(100).optional(),
+  cliMode: z.enum(["read-only", "workspace-write"]).optional(),
+  cliWorkingDirectory: z.string().trim().max(500).optional(),
+  cliTimeoutSeconds: z.number().int().min(15).max(1800).optional(),
+  customCliCommand: z.string().trim().max(500).optional(),
+  customCliArgs: z.string().trim().max(1000).optional(),
+  cliFallbackBehavior: z.enum(["fail", "api", "demo"]).optional(),
+})
 
 export async function GET() {
   const session = await getSession()
@@ -60,12 +38,8 @@ export async function GET() {
 
   const settings = loadSettings()
   return NextResponse.json({
-    openaiBaseUrl: settings.openaiBaseUrl,
-    openaiModel: settings.openaiModel,
-    demoMode: settings.demoMode,
-    hasApiKey: !!settings.openaiApiKey,
-    // Never expose the actual key
-    openaiApiKey: "",
+    ...toPublicSettings(settings),
+    cliProviders: listCliProviderSummaries(),
   })
 }
 
@@ -75,11 +49,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const body = await request.json()
-  const current = loadSettings()
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+  }
 
-  // Validate base URL format
-  const newBaseUrl = body.openaiBaseUrl ?? current.openaiBaseUrl
+  const parsed = settingsUpdateSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid settings", details: parsed.error.flatten().fieldErrors },
+      { status: 400 }
+    )
+  }
+
+  const current = loadSettings()
+  const data = parsed.data
+
+  const newBaseUrl = data.openaiBaseUrl ?? current.openaiBaseUrl
   if (newBaseUrl && !isValidBaseUrl(newBaseUrl)) {
     return NextResponse.json(
       { error: "Invalid Base URL. Must be a valid http:// or https:// URL." },
@@ -87,25 +75,30 @@ export async function POST(request: Request) {
     )
   }
 
-  const updated: Settings = {
-    openaiApiKey: body.openaiApiKey ?? current.openaiApiKey,
+  let apiKey = current.openaiApiKey
+  if (typeof data.openaiApiKey === "string" && data.openaiApiKey.length > 0) {
+    apiKey = data.openaiApiKey
+  }
+
+  const updated: AppSettings = {
+    ...current,
+    openaiApiKey: apiKey,
     openaiBaseUrl: newBaseUrl,
-    openaiModel: body.openaiModel ?? current.openaiModel,
-    demoMode: body.demoMode ?? current.demoMode,
+    openaiModel: data.openaiModel ?? current.openaiModel,
+    demoMode: data.demoMode ?? current.demoMode,
+    aiRuntime: (data.aiRuntime as AIRuntime) ?? current.aiRuntime,
+    cliProvider: data.cliProvider ?? current.cliProvider,
+    cliModel: data.cliModel ?? current.cliModel,
+    cliMode: (data.cliMode as CliMode) ?? current.cliMode,
+    cliWorkingDirectory: data.cliWorkingDirectory ?? current.cliWorkingDirectory,
+    cliTimeoutSeconds: data.cliTimeoutSeconds ?? current.cliTimeoutSeconds,
+    customCliCommand: data.customCliCommand ?? current.customCliCommand,
+    customCliArgs: data.customCliArgs ?? current.customCliArgs,
+    cliFallbackBehavior: (data.cliFallbackBehavior as CliFallbackBehavior) ?? current.cliFallbackBehavior,
   }
 
-  // Only update key if a new non-empty value is provided
-  if (body.openaiApiKey && body.openaiApiKey.length > 0) {
-    updated.openaiApiKey = body.openaiApiKey
-  }
-
-  saveSettings(updated)
-
-  // Update process.env for immediate effect
-  process.env.OPENAI_API_KEY = updated.openaiApiKey
-  process.env.OPENAI_BASE_URL = updated.openaiBaseUrl
-  process.env.OPENAI_MODEL = updated.openaiModel
-  process.env.DEMO_MODE = updated.demoMode ? "true" : "false"
+  await saveSettings(updated)
+  applySettingsToEnv(updated)
 
   return NextResponse.json({ success: true })
 }

@@ -1,8 +1,8 @@
-import type { AgentName } from "../types/index"
+import type { BuiltInAgentName } from "../types/index"
 
-export const AGENT_NAMES: AgentName[] = ["architect", "coder", "qa", "devops"]
+export const AGENT_NAMES: BuiltInAgentName[] = ["architect", "coder", "qa", "devops"]
 
-export const AGENT_CONFIG: Record<AgentName, { label: string; color: string; icon: string; description: string }> = {
+export const AGENT_CONFIG: Record<BuiltInAgentName, { label: string; color: string; icon: string; description: string }> = {
   architect: {
     label: "架构师",
     color: "#8b5cf6",
@@ -28,6 +28,13 @@ export const AGENT_CONFIG: Record<AgentName, { label: string; color: string; ico
     description: "容器化、CI/CD 和部署",
   },
 }
+
+export const TASK_STATUSES = ["PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED"] as const
+export const TASK_TYPES = ["REFACTOR", "GENERATE_CODE", "RUN_TESTS", "DEPLOY", "GENERATE_DOCS", "FULL_PIPELINE"] as const
+export const DEPLOY_STATUSES = ["PENDING", "BUILDING", "PUSHING", "DEPLOYING", "RUNNING", "FAILED", "STOPPED"] as const
+export const DOCUMENT_STATUSES = ["DRAFT", "GENERATING", "COMPLETED", "FAILED"] as const
+export const DEPLOY_ENVIRONMENTS = ["staging", "production"] as const
+export const DEPLOY_PROVIDERS = ["docker-local", "aws", "gcp", "vercel"] as const
 
 export const TASK_STATUS_LABELS: Record<string, string> = {
   PENDING: "等待中",

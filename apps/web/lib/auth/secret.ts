@@ -3,6 +3,8 @@
 
 let _secret: Uint8Array | null = null
 
+const DEV_FALLBACK_SECRET = "devflow-forge-dev-secret-do-not-use-in-production-32ch"
+
 export function getSessionSecret(): Uint8Array {
   if (_secret) return _secret
 
@@ -16,12 +18,10 @@ export function getSessionSecret(): Uint8Array {
     throw new Error("FATAL: SESSION_SECRET is not set. Refusing to start in production without it.")
   }
 
-  // Dev: stable per process, warn once
-  const fallback = crypto.randomUUID()
-  _secret = new TextEncoder().encode(fallback)
+  _secret = new TextEncoder().encode(DEV_FALLBACK_SECRET)
   console.warn(
-    `[Auth] SESSION_SECRET not set. Using random dev secret (stable for this process). ` +
-    `Sessions will not persist across restarts. Set SESSION_SECRET in .env.local to fix.`
+    `[Auth] SESSION_SECRET not set. Using deterministic dev secret. ` +
+    `Set SESSION_SECRET in .env.local for production.`
   )
   return _secret
 }

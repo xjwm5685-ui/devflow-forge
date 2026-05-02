@@ -10,10 +10,10 @@ datasource db {
 model User {
   id          String   @id @default(cuid())
   githubId    Int      @unique
-  login       String
-  email       String?
+  login       String   @unique
+  email       String?  @unique
   avatarUrl   String?
-  accessToken String   @default("")
+  accessToken String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -29,12 +29,12 @@ model Project {
   name         String
   description  String?
   githubRepo   String?
-  githubBranch String?  @default("main")
+  githubBranch String?
   userId       String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  user         User        @relation(fields: [userId], references: [id])
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   workflows    Workflow[]
   tasks        Task[]
   documents    Document[]
@@ -47,18 +47,19 @@ model Workflow {
   id          String   @id @default(cuid())
   name        String
   description String?
-  projectId   String
+  projectId   String?
   definition  String   @default("{}")
   isTemplate  Boolean  @default(false)
   templateTag String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  project     Project  @relation(fields: [projectId], references: [id])
+  project     Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   tasks       Task[]
 
   @@index([projectId])
   @@index([isTemplate])
+  @@unique([projectId, name])
 }
 
 model Task {
@@ -71,16 +72,16 @@ model Task {
   input        String          @default("{}")
   output       String?
   agentTrace   String?
-  tokenUsage   Int             @default(0)
   startedAt    DateTime?
   completedAt  DateTime?
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
-  project      Project         @relation(fields: [projectId], references: [id])
-  workflow     Workflow?       @relation(fields: [workflowId], references: [id])
-  user         User            @relation(fields: [userId], references: [id])
+  project      Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workflow     Workflow?       @relation(fields: [workflowId], references: [id], onDelete: SetNull)
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   agentMessages AgentMessage[]
+  tokenUsage   TokenUsage[]
 
   @@index([userId])
   @@index([projectId])
@@ -92,7 +93,7 @@ model Document {
   projectId String
   userId    String
   title     String
-  content   String   @default("{}")
+  content   String?
   diagrams  String?
   audioUrl  String?
   videoUrl  String?
@@ -100,8 +101,8 @@ model Document {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  project   Project  @relation(fields: [projectId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([projectId])
@@ -122,8 +123,8 @@ model Deployment {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  project     Project  @relation(fields: [projectId], references: [id])
-  user        User     @relation(fields: [userId], references: [id])
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([projectId])
@@ -140,7 +141,8 @@ model TokenUsage {
   taskId       String?
   createdAt    DateTime @default(now())
 
-  user         User     @relation(fields: [userId], references: [id])
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task         Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([taskId])

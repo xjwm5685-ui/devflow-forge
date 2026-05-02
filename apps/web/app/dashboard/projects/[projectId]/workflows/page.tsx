@@ -2,8 +2,16 @@
 
 import { trpc } from "@/lib/trpc/client"
 import { useParams } from "next/navigation"
+import type { WorkflowDefinition } from "@devflow/shared"
 import Link from "next/link"
-import { Icon } from "@/components/shared/icon"
+
+const ACCENTS = [
+  "rgba(165,180,252,0.45)",
+  "rgba(125,211,252,0.45)",
+  "rgba(134,239,172,0.45)",
+  "rgba(251,191,36,0.45)",
+  "rgba(240,171,252,0.45)",
+]
 
 export default function WorkflowsPage() {
   const params = useParams()
@@ -19,78 +27,130 @@ export default function WorkflowsPage() {
   const workflows = project?.workflows ?? []
 
   return (
-    <div className="p-8 max-w-6xl">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Link href={`/dashboard/projects/${projectId}`} className="text-zinc-500 hover:text-zinc-300 transition-colors">
-              <Icon name="back" size={16} />
-            </Link>
-            <h1 className="text-xl font-semibold text-zinc-100 tracking-tight">工作流</h1>
-          </div>
-          <p className="text-sm text-zinc-500">{project?.name} 的工作流</p>
-        </div>
+    <div style={{ padding: "40px 48px 64px", maxWidth: 1280, position: "relative" }}>
+      <div className="orb" style={{ width: 460, height: 460, top: -160, left: 100, background: "radial-gradient(circle, rgba(165,180,252,0.45), transparent 70%)" }} />
+
+      <Link href={`/dashboard/projects/${projectId}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "rgb(var(--fg-4))", fontFamily: "var(--font-mono)", letterSpacing: "0.04em", marginBottom: 18 }}>
+        ← <span>BACK · {project?.name ?? "project"}</span>
+      </Link>
+
+      <div className="reveal mb-10">
+        <span className="eyebrow">Workflows</span>
+        <h1 className="headline" style={{ fontSize: 56, marginTop: 8, lineHeight: 1.0 }}>
+          Compose your <em>agent</em> pipeline
+        </h1>
+        <p style={{ color: "rgb(var(--fg-3))", fontSize: 13.5, marginTop: 12, maxWidth: 600, lineHeight: 1.6 }}>
+          每个工作流都是一条节点流：从触发器开始，经过架构师、编码、QA、运维等智能体节点，最终汇成一份产出。
+        </p>
       </div>
 
-      {/* Existing workflows */}
       {workflows.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-sm font-semibold text-zinc-300 mb-3">已有工作流</h2>
-          <div className="grid grid-cols-2 gap-4">
-            {workflows.map((wf) => {
-              const def = JSON.parse(wf.definition)
+        <section className="mb-12">
+          <div className="flex items-end justify-between mb-4">
+            <div>
+              <span className="eyebrow">Active</span>
+              <h2 className="headline" style={{ fontSize: 28, marginTop: 4 }}>
+                已有 <em style={{ fontFamily: "var(--font-display)" }}>flows</em>
+              </h2>
+            </div>
+            <span className="chip">{workflows.length}</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 14 }}>
+            {workflows.map((wf, i) => {
+              const def = typeof wf.definition === "string" ? JSON.parse(wf.definition) : wf.definition
+              const accent = ACCENTS[i % ACCENTS.length]
               return (
-                <Link key={wf.id} href={`/dashboard/projects/${projectId}/workflows/${wf.id}`}
-                  className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 hover:border-zinc-700 transition-colors group">
-                  <h3 className="text-[13px] font-semibold text-zinc-100 mb-1 group-hover:text-indigo-400 transition-colors">{wf.name}</h3>
-                  <p className="text-xs text-zinc-500 mb-3">{wf.description || "暂无描述"}</p>
-                  <div className="flex items-center gap-1.5">
-                    {def.nodes?.slice(0, 5).map((node: { id: string; data: { label: string }; type: string }, i: number) => (
-                      <div key={node.id} className="flex items-center gap-1">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${node.type === "trigger" ? "bg-zinc-800 text-zinc-500" : "bg-indigo-500/10 text-indigo-400"}`}>{node.data.label}</span>
-                        {i < Math.min(def.nodes.length, 5) - 1 && <svg className="w-3 h-3 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>}
-                      </div>
-                    ))}
+                <Link
+                  key={wf.id}
+                  href={`/dashboard/projects/${projectId}/workflows/${wf.id}`}
+                  className="reveal glass glass-edge glass-spot"
+                  style={{ padding: 0, position: "relative", overflow: "hidden", animationDelay: `${i * 60}ms`, transition: "transform 0.3s" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)" }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)" }}
+                >
+                  <div style={{ position: "absolute", inset: 0, background: `radial-gradient(120% 80% at 100% 0%, ${accent}, transparent 60%)`, opacity: 0.5, pointerEvents: "none" }} />
+                  <div style={{ position: "relative", padding: 22 }}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="font-display-italic" style={{ fontSize: 22 }}>{wf.name}</div>
+                      <span className="chip">{def.nodes?.length ?? 0} nodes</span>
+                    </div>
+                    <p className="line-clamp-2" style={{ fontSize: 12.5, color: "rgb(var(--fg-3))", marginBottom: 14, minHeight: 36, lineHeight: 1.55 }}>
+                      {wf.description || "（暂无描述）"}
+                    </p>
+                    <div className="flex items-center flex-wrap gap-1.5">
+                      {def.nodes?.slice(0, 6).map((node: { id: string; data: { label: string }; type: string }, j: number) => (
+                        <span key={node.id} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <span
+                            style={{
+                              padding: "3px 9px",
+                              borderRadius: 999,
+                              fontSize: 10.5,
+                              fontFamily: "var(--font-mono)",
+                              letterSpacing: "0.04em",
+                              color: node.type === "trigger" ? "rgb(var(--fg-3))" : "rgb(165 180 252)",
+                              background: node.type === "trigger" ? "rgba(255,255,255,0.05)" : "rgba(165,180,252,0.10)",
+                              border: node.type === "trigger" ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(165,180,252,0.25)",
+                            }}
+                          >
+                            {node.data.label}
+                          </span>
+                          {j < Math.min(def.nodes.length, 6) - 1 && <span style={{ color: "rgb(var(--fg-4))", fontSize: 10 }}>›</span>}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </Link>
               )
             })}
           </div>
-        </div>
+        </section>
       )}
 
-      {/* Create from template */}
-      <div>
-        <h2 className="text-sm font-semibold text-zinc-300 mb-3">从模板创建</h2>
-        <div className="grid grid-cols-3 gap-4">
-          {templates?.filter(t => t.isTemplate).map((template) => {
-            const def = JSON.parse(template.definition)
+      <section>
+        <div className="flex items-end justify-between mb-4">
+          <div>
+            <span className="eyebrow">Templates</span>
+            <h2 className="headline" style={{ fontSize: 28, marginTop: 4 }}>
+              从模板 <em style={{ fontFamily: "var(--font-display)" }}>fabricate</em>
+            </h2>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 14 }}>
+          {templates?.filter(t => t.isTemplate).map((template, i) => {
+            const def = typeof template.definition === "string" ? JSON.parse(template.definition) : template.definition
+            const accent = ACCENTS[i % ACCENTS.length]
             return (
-              <div key={template.id} className="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
-                <h3 className="text-[13px] font-semibold text-zinc-100 mb-1">{template.name}</h3>
-                <p className="text-xs text-zinc-500 mb-3">{template.description}</p>
-                <div className="flex items-center gap-1 mb-4">
-                  {def.nodes?.slice(0, 4).map((n: { id: string; data: { label: string } }) => (
-                    <span key={n.id} className="px-1.5 py-0.5 rounded text-[10px] bg-zinc-800 text-zinc-500">{n.data.label}</span>
-                  ))}
+              <div key={template.id} className="reveal glass glass-edge" style={{ padding: 0, position: "relative", overflow: "hidden", animationDelay: `${i * 60}ms` }}>
+                <div style={{ position: "absolute", inset: 0, background: `radial-gradient(80% 100% at 0% 0%, ${accent}, transparent 60%)`, opacity: 0.45, pointerEvents: "none" }} />
+                <div style={{ position: "relative", padding: 20 }}>
+                  <div className="font-display-italic" style={{ fontSize: 20, marginBottom: 6 }}>{template.name}</div>
+                  <p className="line-clamp-2" style={{ fontSize: 12, color: "rgb(var(--fg-3))", lineHeight: 1.55, minHeight: 36, marginBottom: 14 }}>
+                    {template.description ?? "—"}
+                  </p>
+                  <div className="flex items-center flex-wrap gap-1.5 mb-4">
+                    {def.nodes?.slice(0, 4).map((n: { id: string; data: { label: string } }) => (
+                      <span key={n.id} className="chip" style={{ padding: "2px 8px", fontSize: 10 }}>{n.data.label}</span>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => createFromTemplate.mutate({
+                      name: template.name,
+                      description: template.description ?? undefined,
+                      projectId,
+                      definition: template.definition as WorkflowDefinition,
+                    })}
+                    disabled={createFromTemplate.isPending}
+                    className="btn btn-glass"
+                    style={{ width: "100%" }}
+                  >
+                    {createFromTemplate.isPending ? "创建中…" : "使用此模板"}
+                  </button>
                 </div>
-                <button
-                  onClick={() => createFromTemplate.mutate({
-                    name: template.name,
-                    description: template.description ?? undefined,
-                    projectId,
-                    definition: JSON.parse(template.definition),
-                  })}
-                  disabled={createFromTemplate.isPending}
-                  className="w-full py-2 bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 rounded-md hover:bg-indigo-600/20 transition-colors text-[13px] font-medium disabled:opacity-50"
-                >
-                  {createFromTemplate.isPending ? "创建中..." : "使用此模板"}
-                </button>
               </div>
             )
           })}
         </div>
-      </div>
+      </section>
     </div>
   )
 }

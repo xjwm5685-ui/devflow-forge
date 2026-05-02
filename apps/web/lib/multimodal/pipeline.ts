@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/db"
 import { generateNarration } from "./audio-generator"
 import { generateVideo } from "./video-generator"
+import { fetchRepoSnapshot, parseRepo } from "@/lib/github/client"
+import { getUserAccessToken } from "@/lib/github/token-store"
+import { basename } from "path"
 
 interface GenerateDocumentParams {
   projectId: string
@@ -12,11 +15,101 @@ interface GenerateDocumentParams {
   }
 }
 
+function isDocumentationFile(path: string): boolean {
+  return /\.(cjs|css|go|html|js|json|jsx|md|mjs|py|rs|tsx?|yaml|yml)$/i.test(path) ||
+    ["Dockerfile", "requirements.txt", "pyproject.toml", "go.mod"].includes(path)
+}
+
+async function loadRepositoryFiles(params: {
+  token: string | null
+  githubRepo: string | null
+  githubBranch: string | null
+}): Promise<Array<{ path: string; content: string }> | null> {
+  const repoRef = parseRepo(params.githubRepo)
+  if (!repoRef || !params.token) return null
+
+  const branch = params.githubBranch ?? "main"
+  const files = await fetchRepoSnapshot({
+    token: params.token,
+    owner: repoRef.owner,
+    repo: repoRef.repo,
+    branch,
+    fileFilter: isDocumentationFile,
+    maxFiles: 35,
+    maxBytesPerFile: 120_000,
+    maxScannedDirs: 25,
+  })
+  return files.length > 0 ? files.map(({ path, content }) => ({ path, content })) : null
+}
+
+function summarizeFiles(files: Array<{ path: string; content: string }> | null): string {
+  if (!files?.length) {
+    return "No live repository files were available. This document summarizes the project metadata and configured workflow surface."
+  }
+
+  const groups = new Map<string, number>()
+  for (const file of files) {
+    const ext = file.path.includes(".") ? file.path.split(".").pop()!.toLowerCase() : file.path
+    groups.set(ext, (groups.get(ext) ?? 0) + 1)
+  }
+
+  const summary = [...groups.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([ext, count]) => `${count} ${ext} file${count === 1 ? "" : "s"}`)
+    .join(", ")
+
+  return `Repository sample: ${summary}. Key files scanned: ${files.slice(0, 12).map((f) => f.path).join(", ")}.`
+}
+
+function inferStack(files: Array<{ path: string; content: string }> | null): string {
+  if (!files?.length) return "Stack could not be inferred from repository files."
+
+  const paths = new Set(files.map((f) => f.path))
+  const pkg = files.find((f) => f.path === "package.json")
+  if (pkg) {
+    try {
+      const parsed = JSON.parse(pkg.content) as {
+        scripts?: Record<string, string>
+        dependencies?: Record<string, string>
+        devDependencies?: Record<string, string>
+      }
+      const deps = { ...parsed.dependencies, ...parsed.devDependencies }
+      const frameworks = [
+        deps.next ? "Next.js" : null,
+        deps.react ? "React" : null,
+        deps["@trpc/server"] ? "tRPC" : null,
+        deps.prisma || deps["@prisma/client"] ? "Prisma" : null,
+        deps.express ? "Express" : null,
+      ].filter(Boolean)
+      const scripts = parsed.scripts ? Object.keys(parsed.scripts).join(", ") : "none"
+      return `Detected Node project${frameworks.length ? ` using ${frameworks.join(", ")}` : ""}. Package scripts: ${scripts}.`
+    } catch (err) {
+      console.warn("[Pipeline] Failed to parse package.json:", err)
+      return "Detected Node project, but package.json could not be parsed."
+    }
+  }
+  if (paths.has("requirements.txt") || paths.has("pyproject.toml")) return "Detected Python project."
+  if (paths.has("go.mod")) return "Detected Go project."
+  return "Stack inferred from sampled files is mixed or custom."
+}
+
 export async function generateDocument(docId: string, params: GenerateDocumentParams): Promise<void> {
   try {
+    const doc = await prisma.document.findUnique({
+      where: { id: docId },
+      select: { userId: true },
+    })
+
     const project = await prisma.project.findUnique({
       where: { id: params.projectId },
     })
+
+    const userToken = doc?.userId ? await getUserAccessToken(doc.userId) : null
+    const files = await loadRepositoryFiles({
+      token: userToken,
+      githubRepo: project?.githubRepo ?? null,
+      githubBranch: project?.githubBranch ?? null,
+    }).catch(() => null)
 
     // Generate document content
     const content = {
@@ -24,19 +117,19 @@ export async function generateDocument(docId: string, params: GenerateDocumentPa
       sections: [
         {
           heading: "Overview",
-          content: `This document provides a comprehensive overview of the ${project?.name ?? "project"} application. The system is designed with scalability and maintainability in mind, following modern software engineering best practices.`,
+          content: `${project?.name ?? "This project"}${project?.githubRepo ? ` is connected to ${project.githubRepo}` : ""}. ${project?.description ?? "No project description was provided."}`,
         },
         {
-          heading: "Architecture",
-          content: `The application follows a modular architecture pattern with clear separation of concerns:\n\n- **API Layer**: Express.js route handlers with middleware chain\n- **Service Layer**: Business logic encapsulation\n- **Data Layer**: Prisma ORM with PostgreSQL\n- **Auth Layer**: JWT-based authentication with refresh tokens`,
+          heading: "Repository Structure",
+          content: summarizeFiles(files),
         },
         {
-          heading: "API Endpoints",
-          content: `### Authentication\n- \`POST /api/auth/login\` - User login\n- \`POST /api/auth/register\` - User registration\n- \`POST /api/auth/refresh\` - Token refresh\n\n### Users\n- \`GET /api/users\` - List users\n- \`GET /api/users/:id\` - Get user\n- \`PATCH /api/users/:id\` - Update user`,
+          heading: "Technology Stack",
+          content: inferStack(files),
         },
         {
-          heading: "Deployment",
-          content: `The application is containerized using Docker with multi-stage builds for optimal image size. CI/CD is handled through GitHub Actions with automated testing and deployment.\n\n### Environment Variables\n- \`DATABASE_URL\` - PostgreSQL connection string\n- \`JWT_SECRET\` - JWT signing secret\n- \`REDIS_URL\` - Redis connection string`,
+          heading: "Operational Notes",
+          content: `Configured branch: ${project?.githubBranch ?? "main"}. Generated documentation is based on metadata${files?.length ? " and a sampled repository file set" : ""}. Review generated diagrams before using them as authoritative architecture documentation.`,
         },
       ],
     }
@@ -46,26 +139,20 @@ export async function generateDocument(docId: string, params: GenerateDocumentPa
         type: "architecture",
         title: "System Architecture",
         mermaid: `graph TB
-    Client[Client] --> API[API Gateway]
-    API --> Auth[Auth Service]
-    API --> User[User Service]
-    API --> Product[Product Service]
-    Auth --> DB[(Database)]
-    User --> DB
-    Product --> DB
-    API --> Cache[Redis Cache]`,
+    Repo[${project?.githubRepo ?? "Repository"}] --> App[Application]
+    App --> Build[Build/Test Workflow]
+    Build --> Deploy[Deployment]
+    App --> Docs[Generated Documentation]`,
       },
       {
         type: "sequence",
-        title: "Authentication Flow",
+        title: "Workflow Execution",
         mermaid: `sequenceDiagram
-    Client->>API: POST /auth/login
-    API->>Auth: Validate credentials
-    Auth->>DB: Query user
-    DB-->>Auth: User data
-    Auth->>Auth: Generate JWT
-    Auth-->>API: Tokens
-    API-->>Client: { accessToken, refreshToken }`,
+    User->>DevFlow: Start workflow
+    DevFlow->>Repository: Load project context
+    DevFlow->>Agents: Execute configured agent steps
+    Agents-->>DevFlow: Analysis and artifacts
+    DevFlow-->>User: Task result`,
       },
     ] : []
 
@@ -78,7 +165,7 @@ export async function generateDocument(docId: string, params: GenerateDocumentPa
         outputDir: `storage/audio/${docId}`,
       })
       if (audioResult.success && audioResult.filePath) {
-        audioUrl = audioResult.filePath
+        audioUrl = `/api/generated/audio/${docId}/${basename(audioResult.filePath)}`
       }
     }
 
@@ -107,7 +194,7 @@ export async function generateDocument(docId: string, params: GenerateDocumentPa
         outputDir: `storage/video/${docId}`,
       })
       if (videoResult.success && videoResult.htmlPath) {
-        videoUrl = videoResult.htmlPath
+        videoUrl = `/api/generated/video/${docId}/${basename(videoResult.htmlPath)}`
       }
     }
 
@@ -122,7 +209,8 @@ export async function generateDocument(docId: string, params: GenerateDocumentPa
         status: "COMPLETED",
       },
     })
-  } catch {
+  } catch (err) {
+    console.error("[Pipeline] Document generation failed:", err)
     await prisma.document.update({
       where: { id: docId },
       data: { status: "FAILED" },

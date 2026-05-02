@@ -1,6 +1,8 @@
 // OpenAI-compatible LLM client
 // Works with any provider: OpenAI, MiMo, DeepSeek, local models, etc.
 
+import { loadSettings } from "@/lib/settings"
+
 export interface LLMConfig {
   apiKey: string
   baseUrl: string
@@ -47,9 +49,44 @@ export function getLLMConfig(overrides?: Partial<LLMConfig>): LLMConfig {
   }
 }
 
-export function isLLMConfigured(): boolean {
-  const key = process.env.OPENAI_API_KEY
-  return !!key && key.length > 0
+export function getLLMConfigFromSettings(overrides?: Partial<LLMConfig>): LLMConfig {
+  try {
+    const settings = loadSettings()
+    return {
+      apiKey: overrides?.apiKey ?? settings.openaiApiKey ?? process.env.OPENAI_API_KEY ?? "",
+      baseUrl: overrides?.baseUrl ?? settings.openaiBaseUrl ?? process.env.OPENAI_BASE_URL ?? DEFAULT_CONFIG.baseUrl!,
+      model: overrides?.model ?? settings.openaiModel ?? process.env.OPENAI_MODEL ?? DEFAULT_CONFIG.model!,
+      maxTokens: overrides?.maxTokens ?? DEFAULT_CONFIG.maxTokens,
+      temperature: overrides?.temperature ?? DEFAULT_CONFIG.temperature,
+    }
+  } catch {
+    return getLLMConfig(overrides)
+  }
+}
+
+function isLocalBaseUrl(baseUrl: string | undefined): boolean {
+  if (!baseUrl) return false
+  try {
+    const url = new URL(baseUrl)
+    return url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "::1"
+  } catch {
+    return false
+  }
+}
+
+export async function isLLMConfigured(): Promise<boolean> {
+  const envKey = process.env.OPENAI_API_KEY
+  if (envKey && envKey.length > 0) return true
+
+  try {
+    const { loadSettings } = await import("@/lib/settings")
+    const settings = loadSettings()
+    if (settings.openaiApiKey && settings.openaiApiKey.length > 0) return true
+  } catch {
+    // Settings not available yet
+  }
+
+  return isLocalBaseUrl(process.env.OPENAI_BASE_URL)
 }
 
 export async function callLLM(
@@ -58,16 +95,20 @@ export async function callLLM(
 ): Promise<LLMResponse> {
   const cfg = getLLMConfig(config)
 
-  if (!cfg.apiKey) {
+  if (!cfg.apiKey && !isLocalBaseUrl(cfg.baseUrl)) {
     throw new Error("OPENAI_API_KEY is not configured. Set it in .env.local or in the Settings page.")
+  }
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  }
+  if (cfg.apiKey) {
+    headers.Authorization = `Bearer ${cfg.apiKey}`
   }
 
   const response = await fetch(`${cfg.baseUrl}/chat/completions`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${cfg.apiKey}`,
-    },
+    headers,
     body: JSON.stringify({
       model: cfg.model,
       messages,
@@ -111,16 +152,20 @@ export async function* callLLMStream(
 ): AsyncGenerator<LLMStreamChunk> {
   const cfg = getLLMConfig(config)
 
-  if (!cfg.apiKey) {
+  if (!cfg.apiKey && !isLocalBaseUrl(cfg.baseUrl)) {
     throw new Error("OPENAI_API_KEY is not configured")
+  }
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  }
+  if (cfg.apiKey) {
+    headers.Authorization = `Bearer ${cfg.apiKey}`
   }
 
   const response = await fetch(`${cfg.baseUrl}/chat/completions`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${cfg.apiKey}`,
-    },
+    headers,
     body: JSON.stringify({
       model: cfg.model,
       messages,
@@ -140,28 +185,32 @@ export async function* callLLMStream(
   const decoder = new TextDecoder()
   let buffer = ""
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
 
-    buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split("\n")
-    buffer = lines.pop() ?? ""
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split("\n")
+      buffer = lines.pop() ?? ""
 
-    for (const line of lines) {
-      const trimmed = line.trim()
-      if (!trimmed || trimmed === "data: [DONE]") continue
-      if (!trimmed.startsWith("data: ")) continue
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed || trimmed === "data: [DONE]") continue
+        if (!trimmed.startsWith("data: ")) continue
 
-      try {
-        const data = JSON.parse(trimmed.slice(6))
-        const content = data.choices?.[0]?.delta?.content ?? ""
-        const isDone = data.choices?.[0]?.finish_reason != null
-        yield { content, done: isDone }
-      } catch {
-        // Skip malformed chunks
+        try {
+          const data = JSON.parse(trimmed.slice(6))
+          const content = data.choices?.[0]?.delta?.content ?? ""
+          const isDone = data.choices?.[0]?.finish_reason != null
+          yield { content, done: isDone }
+        } catch (err) {
+          console.warn("[AiClient] Skipping malformed SSE chunk:", err)
+        }
       }
     }
+  } finally {
+    reader.cancel().catch(() => {})
   }
 }
 

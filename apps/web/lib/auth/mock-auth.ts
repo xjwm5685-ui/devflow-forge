@@ -27,8 +27,8 @@ export async function getOrCreateDemoUser(): Promise<SessionUser> {
   }
 }
 
-export async function loginAsDemo(): Promise<SessionUser> {
+export async function loginAsDemo(): Promise<{ user: SessionUser; token: string }> {
   const user = await getOrCreateDemoUser()
-  await createSession(user)
-  return user
+  const token = await createSession(user)
+  return { user, token }
 }

@@ -13,24 +13,15 @@ class TokenMeter {
     const totalTokens = params.inputTokens + params.outputTokens
     const costCents = this.calculateCost(params.model, params.inputTokens, params.outputTokens)
 
-    await prisma.$transaction(async (tx) => {
-      await tx.tokenUsage.create({
-        data: {
-          userId: params.userId,
-          model: params.model,
-          inputTokens: params.inputTokens,
-          outputTokens: params.outputTokens,
-          costCents,
-          taskId: params.taskId,
-        },
-      })
-
-      if (params.taskId) {
-        await tx.task.update({
-          where: { id: params.taskId },
-          data: { tokenUsage: { increment: totalTokens } },
-        })
-      }
+    await prisma.tokenUsage.create({
+      data: {
+        userId: params.userId,
+        model: params.model,
+        inputTokens: params.inputTokens,
+        outputTokens: params.outputTokens,
+        costCents,
+        taskId: params.taskId,
+      },
     })
   }
 

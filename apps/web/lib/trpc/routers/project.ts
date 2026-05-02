@@ -21,7 +21,7 @@ export const projectRouter = router({
         where: { id: input.id, userId: ctx.session.id },
         include: {
           workflows: true,
-          tasks: { orderBy: { createdAt: "desc" }, take: 10 },
+          tasks: { orderBy: { createdAt: "desc" }, take: 10, include: { _count: { select: { tokenUsage: true } } } },
           deployments: { orderBy: { createdAt: "desc" }, take: 5 },
           documents: { orderBy: { createdAt: "desc" }, take: 5 },
         },
@@ -43,22 +43,21 @@ export const projectRouter = router({
     .input(updateProjectSchema)
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input
-      const project = await ctx.db.project.findFirst({
+      const result = await ctx.db.project.updateMany({
         where: { id, userId: ctx.session.id },
-        select: { id: true },
+        data,
       })
-      if (!project) throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" })
-      return ctx.db.project.update({ where: { id }, data })
+      if (result.count === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" })
+      return ctx.db.project.findUnique({ where: { id } })
     }),
 
   delete: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const project = await ctx.db.project.findFirst({
+      const result = await ctx.db.project.deleteMany({
         where: { id: input.id, userId: ctx.session.id },
-        select: { id: true },
       })
-      if (!project) throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" })
-      return ctx.db.project.delete({ where: { id: input.id } })
+      if (result.count === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" })
+      return { success: true }
     }),
 })

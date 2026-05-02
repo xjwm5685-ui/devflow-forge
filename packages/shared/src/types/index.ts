@@ -1,5 +1,7 @@
-// Agent types
-export type AgentName = "architect" | "coder" | "qa" | "devops"
+import type { WorkflowNodeData, WorkflowNode, WorkflowEdge } from "../validators"
+
+export type BuiltInAgentName = "architect" | "coder" | "qa" | "devops"
+export type AgentName = BuiltInAgentName | `custom:${string}`
 
 export interface AgentMessage {
   id: string
@@ -22,49 +24,19 @@ export interface ToolCall {
   result?: string
 }
 
-// Workflow types
-export interface WorkflowNodeData {
-  type: "trigger" | "agent" | "condition" | "deploy"
-  label: string
-  agentName?: AgentName
-  prompt?: string
-  model?: string
-  maxIterations?: number
-  expression?: string
-  environment?: string
-  provider?: string
-  status?: "idle" | "running" | "done" | "error"
-  output?: string
-}
-
 export interface WorkflowDefinition {
-  nodes: Array<{
-    id: string
-    type: string
-    position: { x: number; y: number }
-    data: WorkflowNodeData
-  }>
-  edges: Array<{
-    id: string
-    source: string
-    target: string
-    type?: string
-    animated?: boolean
-  }>
+  nodes: WorkflowNode[]
+  edges: WorkflowEdge[]
   viewport?: { x: number; y: number; zoom: number }
 }
 
-// Task types
 export type TaskStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED"
 export type TaskType = "REFACTOR" | "GENERATE_CODE" | "RUN_TESTS" | "DEPLOY" | "GENERATE_DOCS" | "FULL_PIPELINE"
 
-// Deployment types
 export type DeployStatus = "PENDING" | "BUILDING" | "PUSHING" | "DEPLOYING" | "RUNNING" | "FAILED" | "STOPPED"
 
-// Document types
 export type DocumentStatus = "DRAFT" | "GENERATING" | "COMPLETED" | "FAILED"
 
-// GitHub types
 export interface GitHubRepo {
   id: number
   name: string
@@ -84,7 +56,6 @@ export interface GitHubFile {
   content?: string
 }
 
-// Agent result types
 export interface AgentResult {
   success: boolean
   content: string
@@ -96,7 +67,6 @@ export interface AgentResult {
   tokenUsage: { input: number; output: number }
 }
 
-// Context types
 export interface ContextResult {
   systemPrompt: string
   files: Array<{ path: string; content: string; score: number }>

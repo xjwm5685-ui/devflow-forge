@@ -1,73 +1,289 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Copy,
+  ExternalLink,
+  Github,
+  Loader2,
+  ShieldCheck,
+  Sparkles,
+  Terminal,
+  X,
+} from "lucide-react"
+
+type LoginMode = "loading" | "demo" | "redirect" | "device" | "unconfigured"
+
+interface DeviceFlowState {
+  deviceCode: string
+  userCode: string
+  verificationUri: string
+  verificationUriComplete?: string
+  expiresAt: number
+  interval: number
+}
+
+function modeLabel(mode: LoginMode): string {
+  if (mode === "device") return "DEVICE FLOW"
+  if (mode === "redirect") return "OAUTH REDIRECT"
+  if (mode === "demo") return "DEMO SESSION"
+  if (mode === "unconfigured") return "CONFIG NEEDED"
+  return "CHECKING"
+}
 
 export default function LoginPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [mode, setMode] = useState<LoginMode>("loading")
+  const [deviceFlow, setDeviceFlow] = useState<DeviceFlowState | null>(null)
+  const [polling, setPolling] = useState(false)
+  const [statusText, setStatusText] = useState("")
+  const [error, setError] = useState<string | null>(null)
 
-  const handleLogin = () => {
+  useEffect(() => {
+    let active = true
+    fetch("/api/auth/github/config")
+      .then((response) => response.json())
+      .then((data) => {
+        if (!active) return
+        if (!data.hasClientId && data.mode !== "demo") {
+          setMode("unconfigured")
+          return
+        }
+        setMode(data.mode === "device" ? "device" : data.mode === "demo" ? "demo" : "redirect")
+      })
+      .catch(() => {
+        if (active) setMode("unconfigured")
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!deviceFlow || !polling) return
+
+    let canceled = false
+    let timer: ReturnType<typeof setTimeout> | null = null
+
+    async function poll() {
+      if (canceled || !deviceFlow) return
+      if (Date.now() > deviceFlow.expiresAt) {
+        setPolling(false)
+        setError("验证码已过期，请重新发起登录。")
+        return
+      }
+
+      try {
+        const response = await fetch("/api/auth/github/device/poll", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ deviceCode: deviceFlow.deviceCode }),
+        })
+        const data = await response.json().catch(() => null)
+
+        if (response.ok && data?.ok) {
+          setStatusText("GitHub 已授权，正在进入控制台。")
+          setPolling(false)
+          window.location.href = data.redirectTo ?? "/dashboard"
+          return
+        }
+
+        if (response.status === 202) {
+          const nextInterval = Number(data?.interval) > 0 ? Number(data.interval) : deviceFlow.interval
+          timer = setTimeout(poll, nextInterval * 1000)
+          return
+        }
+
+        throw new Error(data?.error ?? "GitHub 授权失败。")
+      } catch (err) {
+        setPolling(false)
+        setError(err instanceof Error ? err.message : "GitHub 授权失败。")
+      }
+    }
+
+    timer = setTimeout(poll, deviceFlow.interval * 1000)
+
+    return () => {
+      canceled = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [deviceFlow, polling, router])
+
+  async function handleLogin() {
     setLoading(true)
-    router.push("/api/auth/github")
+    setError(null)
+    setStatusText("")
+
+    if (mode === "redirect" || mode === "demo") {
+      router.push("/api/auth/github")
+      return
+    }
+
+    if (mode === "unconfigured") {
+      setLoading(false)
+      setError("缺少 GitHub OAuth 配置。")
+      return
+    }
+
+    try {
+      const response = await fetch("/api/auth/github/device/start", { method: "POST" })
+      const data = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(data?.error ?? "无法启动 GitHub Device Flow。")
+
+      if (data?.demo) {
+        window.location.href = data.redirectTo ?? "/dashboard"
+        return
+      }
+
+      const nextDeviceFlow: DeviceFlowState = {
+        deviceCode: data.deviceCode,
+        userCode: data.userCode,
+        verificationUri: data.verificationUri,
+        verificationUriComplete: data.verificationUriComplete,
+        expiresAt: Date.now() + Number(data.expiresIn ?? 900) * 1000,
+        interval: Number(data.interval ?? 5),
+      }
+      setDeviceFlow(nextDeviceFlow)
+      setPolling(true)
+      setStatusText("等待 GitHub 授权。")
+      window.open(data.verificationUriComplete ?? data.verificationUri, "_blank", "noopener,noreferrer")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "GitHub 登录失败。")
+    } finally {
+      setLoading(false)
+    }
   }
 
+  async function copyUserCode() {
+    if (!deviceFlow?.userCode) return
+    await navigator.clipboard.writeText(deviceFlow.userCode).catch(() => {})
+    setStatusText("验证码已复制。")
+  }
+
+  function cancelDeviceFlow() {
+    setPolling(false)
+    setDeviceFlow(null)
+    setStatusText("")
+    setError(null)
+  }
+
+  const busy = loading || mode === "loading"
+  const notice = error ?? statusText
+
   return (
-    <div className="min-h-screen flex">
-      {/* Left - Visual */}
-      <div className="hidden lg:flex flex-1 relative overflow-hidden items-center justify-center bg-gradient-to-br from-zinc-950 via-zinc-900 to-indigo-950">
-        <div className="absolute inset-0 opacity-5" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "32px 32px" }} />
-        <div className="relative z-10 max-w-lg px-12">
-          <div className="mb-8">
-            <div className="w-12 h-12 rounded-xl bg-indigo-500/15 flex items-center justify-center mb-6 border border-indigo-500/20">
-              <svg className="w-6 h-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-              </svg>
+    <main className="login-page">
+      <section className="login-shell" aria-label="DevFlow Forge 登录">
+        <div className="login-visual">
+          <div className="login-brand-row">
+            <div className="login-mark">
+              <Sparkles size={19} />
             </div>
-            <h1 className="text-4xl font-semibold text-zinc-100 tracking-tight leading-tight mb-3">DevFlow Forge</h1>
-            <p className="text-lg text-zinc-400 leading-relaxed">多智能体协同开发平台</p>
+            <div>
+              <div className="login-brand-name">DevFlow Forge</div>
+              <div className="login-brand-subtitle">Local agent workbench</div>
+            </div>
           </div>
-          <div className="space-y-4">
-            {["架构师 Agent 自动分析代码库", "编码 Agent 生成并修改代码", "QA Agent 自动生成测试用例", "DevOps Agent 一键部署上线"].map((text, i) => (
-              <div key={i} className="flex items-center gap-3 text-zinc-400 animate-fade-in" style={{ animationDelay: `${0.3 + i * 0.1}s` }}>
-                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 flex-shrink-0" />
-                <span className="text-sm">{text}</span>
+
+          <div className="login-command-panel">
+            <div className="login-command-title">
+              <Terminal size={15} />
+              <span>runbook</span>
+            </div>
+            <div className="login-command-lines">
+              <span><b>01</b> connect github identity</span>
+              <span><b>02</b> import repository context</span>
+              <span><b>03</b> dispatch coding agents</span>
+            </div>
+          </div>
+
+          <div className="login-status-grid" aria-hidden="true">
+            {[
+              ["ARCH", "design"],
+              ["CODE", "patch"],
+              ["QA", "verify"],
+              ["OPS", "ship"],
+            ].map(([label, value]) => (
+              <div className="login-status-cell" key={label}>
+                <span>{label}</span>
+                <strong>{value}</strong>
               </div>
             ))}
           </div>
         </div>
-      </div>
 
-      {/* Right - Login Form */}
-      <div className="flex-1 flex items-center justify-center px-6 bg-zinc-950">
-        <div className="w-full max-w-sm animate-fade-in">
-          <div className="lg:hidden mb-10">
-            <div className="w-10 h-10 rounded-lg bg-indigo-500/15 flex items-center justify-center mb-4 border border-indigo-500/20">
-              <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-              </svg>
+        <div className="login-panel">
+          <div className="login-panel-header">
+            <div className="login-mode-pill">
+              <span className={polling ? "login-live-dot login-live-dot-on" : "login-live-dot"} />
+              {modeLabel(mode)}
             </div>
-            <h1 className="text-2xl font-semibold text-zinc-100 tracking-tight">DevFlow Forge</h1>
+            <ShieldCheck size={18} />
           </div>
 
-          <h2 className="text-xl font-semibold text-zinc-100 mb-1">登录</h2>
-          <p className="text-sm text-zinc-500 mb-8">使用 GitHub 账号登录以开始使用</p>
+          <div className="login-title-block">
+            <h1>登录控制台</h1>
+            <p>使用 GitHub 授权后，DevFlow 会把访问令牌加密保存在当前本机。</p>
+          </div>
 
-          <button onClick={handleLogin} disabled={loading}
-            className="w-full flex items-center justify-center gap-3 bg-zinc-100 text-zinc-900 font-medium py-3 px-4 rounded-lg hover:bg-white transition-colors disabled:opacity-50 cursor-pointer">
-            {loading ? (
-              <div className="w-5 h-5 border-2 border-zinc-400 border-t-zinc-900 rounded-full animate-spin" />
-            ) : (
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
-              </svg>
-            )}
-            {loading ? "跳转中..." : "使用 GitHub 登录"}
+          <button
+            type="button"
+            onClick={handleLogin}
+            disabled={busy}
+            className="login-primary-button"
+          >
+            {busy ? <Loader2 size={18} className="spin" /> : <Github size={18} />}
+            <span>{busy ? "准备中" : mode === "device" ? "获取 GitHub 验证码" : "使用 GitHub 登录"}</span>
           </button>
 
-          <p className="text-xs text-zinc-600 text-center mt-6">登录即表示你同意我们的服务条款</p>
+          {deviceFlow && (
+            <div className="login-device-card">
+              <div className="login-device-heading">
+                <div>
+                  <span>GitHub Code</span>
+                  <strong>{polling ? "等待授权" : "已暂停"}</strong>
+                </div>
+                <button type="button" onClick={cancelDeviceFlow} aria-label="取消 GitHub 授权">
+                  <X size={15} />
+                </button>
+              </div>
+
+              <button type="button" onClick={copyUserCode} className="login-code-button">
+                {deviceFlow.userCode}
+                <Copy size={15} />
+              </button>
+
+              <div className="login-device-actions">
+                <a
+                  href={deviceFlow.verificationUriComplete ?? deviceFlow.verificationUri}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  打开 GitHub
+                  <ExternalLink size={14} />
+                </a>
+                <button type="button" onClick={copyUserCode}>复制验证码</button>
+              </div>
+            </div>
+          )}
+
+          {notice && (
+            <div className={error ? "login-message login-message-error" : "login-message"}>
+              {error ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
+              <span>{notice}</span>
+            </div>
+          )}
+
+          <div className="login-footnote">
+            <span>OAuth scope</span>
+            <code>repo read:org</code>
+          </div>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   )
 }

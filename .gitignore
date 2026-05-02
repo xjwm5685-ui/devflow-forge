@@ -16,6 +16,10 @@ build/
 .env
 .env.local
 .env.*.local
+.env.production
+.env.staging
+.env.development.local
+.env.test.local
 
 # Database
 *.db
@@ -32,6 +36,7 @@ build/
 Thumbs.db
 
 # Debug
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -44,5 +49,13 @@ uploads/
 # Settings (may contain secrets)
 .settings.json
 
-# Claude
+# Per-host AI assistant scratchpads (project-private prompts)
+CLAUDE.md
+AGENTS.md
 .claude/
+.cursor/
+.aider*
+
+# Test artifacts
+coverage/
+.nyc_output/

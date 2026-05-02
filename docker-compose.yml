@@ -1,0 +1,51 @@
+services:
+  devflow:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: devflow-forge:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "3000"
+      # ── Required ───────────────────────────────────────
+      # Generate with:  openssl rand -hex 32
+      SESSION_SECRET: "${SESSION_SECRET:?SESSION_SECRET must be set in .env or your shell}"
+      NEXTAUTH_URL: "${NEXTAUTH_URL:-http://localhost:3000}"
+      # ── Optional: GitHub OAuth ─────────────────────────
+      GITHUB_CLIENT_ID: "${GITHUB_CLIENT_ID:-}"
+      GITHUB_CLIENT_SECRET: "${GITHUB_CLIENT_SECRET:-}"
+      GITHUB_OAUTH_MODE: "${GITHUB_OAUTH_MODE:-auto}"
+      GITHUB_OAUTH_SCOPE: "${GITHUB_OAUTH_SCOPE:-repo read:org}"
+      # ── Optional: AI runtime (defaults to demo) ────────
+      DEMO_MODE: "${DEMO_MODE:-true}"
+      AI_RUNTIME: "${AI_RUNTIME:-api}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      OPENAI_BASE_URL: "${OPENAI_BASE_URL:-https://api.openai.com/v1}"
+      OPENAI_MODEL: "${OPENAI_MODEL:-gpt-4o}"
+      # ── Token at-rest encryption (optional override) ──
+      TOKEN_ENCRYPTION_KEY: "${TOKEN_ENCRYPTION_KEY:-}"
+    volumes:
+      - devflow-data:/app/data
+      - devflow-storage:/app/apps/web/storage
+      - devflow-config:/app/apps/web/.settings
+      # ⚠️  SECURITY WARNING: Mounting the Docker socket grants the container
+      #     equivalent root access to the host. Only enable this if you need
+      #     the deployments page to build/run containers on the host.
+      #     For safer alternatives, consider Docker-in-Docker (dind) or
+      #     rootless Docker with a TCP socket.
+      # - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  devflow-data:        # SQLite database
+  devflow-storage:     # Generated audio / video / per-task workspaces
+  devflow-config:      # .settings.json (runtime-saved settings)

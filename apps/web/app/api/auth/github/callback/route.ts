@@ -1,16 +1,26 @@
 import { loginAsDemo } from "@/lib/auth/mock-auth"
-import { prisma } from "@/lib/db"
-import { createSession } from "@/lib/auth/session"
-import { redirect } from "next/navigation"
+import { setSessionCookie, shouldUseSecureCookies } from "@/lib/auth/session"
+import { getRedirectGitHubClientId } from "@/lib/github/oauth-config"
+import { completeGitHubLogin } from "@/lib/github/oauth-login"
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
+
+function getBaseUrl(request: Request): string {
+  const configuredUrl = process.env.NEXTAUTH_URL ?? process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL
+  if (configuredUrl) return configuredUrl.replace(/\/$/, "")
+
+  return new URL(request.url).origin
+}
 
 export async function GET(request: Request) {
   const isDemo = process.env.DEMO_MODE === "true"
 
   if (isDemo) {
-    await loginAsDemo()
-    redirect("/dashboard")
+    const { token } = await loginAsDemo()
+    return setSessionCookie(
+      NextResponse.redirect(new URL("/dashboard", request.url)),
+      token,
+    )
   }
 
   // Production: real GitHub OAuth callback
@@ -20,27 +30,34 @@ export async function GET(request: Request) {
   const error = url.searchParams.get("error")
 
   if (error) {
-    return NextResponse.json({ error: `GitHub OAuth error: ${error}` }, { status: 400 })
+    return NextResponse.redirect(new URL("/login?error=oauth_denied", request.url))
   }
 
   if (!code || !state) {
-    return NextResponse.json({ error: "Missing code or state parameter" }, { status: 400 })
+    return NextResponse.redirect(new URL("/login?error=oauth_invalid", request.url))
   }
 
   // Validate CSRF state
   const cookieStore = await cookies()
   const savedState = cookieStore.get("oauth_state")?.value
-  cookieStore.delete("oauth_state")
 
   if (!savedState || savedState !== state) {
-    return NextResponse.json({ error: "Invalid OAuth state (CSRF check failed)" }, { status: 403 })
+    const res = NextResponse.redirect(new URL("/login?error=oauth_state", request.url))
+    res.cookies.set("oauth_state", "", {
+      httpOnly: true,
+      secure: shouldUseSecureCookies(),
+      sameSite: "lax",
+      maxAge: 0,
+      path: "/",
+    })
+    return res
   }
 
   // Exchange code for access token
-  const clientId = process.env.GITHUB_CLIENT_ID
+  const clientId = getRedirectGitHubClientId()
   const clientSecret = process.env.GITHUB_CLIENT_SECRET
   if (!clientId || !clientSecret) {
-    return NextResponse.json({ error: "GitHub OAuth credentials not configured" }, { status: 500 })
+    return NextResponse.redirect(new URL("/login?error=oauth_config", request.url))
   }
 
   const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
@@ -54,11 +71,12 @@ export async function GET(request: Request) {
       client_secret: clientSecret,
       code,
       state,
+      redirect_uri: `${getBaseUrl(request)}/api/auth/github/callback`,
     }),
   })
 
   if (!tokenRes.ok) {
-    return NextResponse.json({ error: "Failed to exchange code for token" }, { status: 502 })
+    return NextResponse.redirect(new URL("/login?error=oauth_token", request.url))
   }
 
   const tokenData = (await tokenRes.json()) as {
@@ -68,59 +86,22 @@ export async function GET(request: Request) {
   }
 
   if (tokenData.error || !tokenData.access_token) {
-    return NextResponse.json(
-      { error: tokenData.error_description ?? "No access token received" },
-      { status: 401 }
-    )
+    return NextResponse.redirect(new URL("/login?error=oauth_access", request.url))
   }
 
-  const accessToken = tokenData.access_token
-
-  // Fetch user profile from GitHub
-  const userRes = await fetch("https://api.github.com/user", {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: "application/vnd.github+json",
-    },
-  })
-
-  if (!userRes.ok) {
-    return NextResponse.json({ error: "Failed to fetch GitHub user profile" }, { status: 502 })
+  try {
+    const sessionToken = await completeGitHubLogin(tokenData.access_token)
+    const res = NextResponse.redirect(new URL("/dashboard", request.url))
+    res.cookies.set("oauth_state", "", {
+      httpOnly: true,
+      secure: shouldUseSecureCookies(),
+      sameSite: "lax",
+      maxAge: 0,
+      path: "/",
+    })
+    return setSessionCookie(res, sessionToken)
+  } catch (err) {
+    console.error("[OAuth] GitHub login failed:", err instanceof Error ? err.message : err)
+    return NextResponse.redirect(new URL("/login?error=oauth_failed", request.url))
   }
-
-  const ghUser = (await userRes.json()) as {
-    id: number
-    login: string
-    email: string | null
-    avatar_url: string | null
-  }
-
-  // Upsert user in database
-  const user = await prisma.user.upsert({
-    where: { githubId: ghUser.id },
-    update: {
-      login: ghUser.login,
-      email: ghUser.email,
-      avatarUrl: ghUser.avatar_url,
-      accessToken,
-    },
-    create: {
-      githubId: ghUser.id,
-      login: ghUser.login,
-      email: ghUser.email,
-      avatarUrl: ghUser.avatar_url,
-      accessToken,
-    },
-  })
-
-  // Create JWT session
-  await createSession({
-    id: user.id,
-    githubId: user.githubId,
-    login: user.login,
-    email: user.email,
-    avatarUrl: user.avatarUrl,
-  })
-
-  redirect("/dashboard")
 }

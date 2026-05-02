@@ -134,7 +134,6 @@ async function main() {
       type: "REFACTOR",
       input: JSON.stringify({ prompt: "Refactor the authentication module to use JWT tokens" }),
       output: JSON.stringify({ summary: "Successfully refactored auth module", filesChanged: 5 }),
-      tokenUsage: 15420,
       startedAt: new Date(Date.now() - 3600000),
       completedAt: new Date(),
     },
@@ -147,7 +146,6 @@ async function main() {
       status: "RUNNING",
       type: "GENERATE_DOCS",
       input: JSON.stringify({ prompt: "Generate API documentation for all endpoints" }),
-      tokenUsage: 8200,
       startedAt: new Date(),
     },
   })

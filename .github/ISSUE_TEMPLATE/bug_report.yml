@@ -1,0 +1,52 @@
+name: Bug report
+description: Something is broken
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug. Include the smallest reproducer you can.
+      placeholder: |
+        Steps to reproduce:
+        1. ...
+        2. ...
+
+        Expected: ...
+        Actual: ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Runtime mode
+      options:
+        - Demo
+        - API (OpenAI-compatible)
+        - CLI (Claude Code / opencode / Codex / …)
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: cli-provider
+    attributes:
+      label: If CLI mode, which provider?
+      placeholder: claude-code | opencode | openai-codex | gemini-cli | aider | qwen-code | github-copilot | cursor-agent | custom
+
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: Output of `node -v`, `pnpm -v`, OS, browser if frontend.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Server console output, network errors, or messages from the agent activity panel. Redact secrets.
+      render: shell

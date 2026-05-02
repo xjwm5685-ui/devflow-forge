@@ -1,12 +1,9 @@
 import { prisma } from "@/lib/db"
 import { generateDockerfile } from "./dockerfile-gen"
-import { isDockerAvailable, buildImage } from "./container-builder"
+import { isDockerAvailable, buildImage, runContainer } from "./container-builder"
 import type { DeployStatus } from "@devflow/shared"
-
-const MOCK_FILES = [
-  { path: "package.json", content: '{"name":"app","scripts":{"build":"tsc","start":"node dist/index.js"}}' },
-  { path: "src/index.ts", content: 'import express from "express"; const app = express(); app.listen(3000);' },
-]
+import { fetchRepoSnapshot, parseRepo } from "@/lib/github/client"
+import { getUserAccessToken } from "@/lib/github/token-store"
 
 const SIMULATED_STAGES: Array<{ status: DeployStatus; message: string; duration: number }> = [
   { status: "BUILDING", message: "Building Docker image...", duration: 3000 },
@@ -15,88 +12,169 @@ const SIMULATED_STAGES: Array<{ status: DeployStatus; message: string; duration:
   { status: "RUNNING", message: "Deployment successful! Health check passed.", duration: 2000 },
 ]
 
-export async function simulateDeployment(deploymentId: string): Promise<void> {
-  const logs: string[] = []
-
-  // Try real Docker build first
-  const hasDocker = await isDockerAvailable()
-
-  if (hasDocker) {
-    await realDeploy(deploymentId, logs)
-  } else {
-    await simulatedDeploy(deploymentId, logs)
-  }
+interface DeploymentRecord {
+  id: string
+  userId: string
+  project: { githubRepo: string | null; githubBranch: string | null }
 }
 
-async function realDeploy(deploymentId: string, logs: string[]): Promise<void> {
+function isDemoMode(): boolean {
+  return process.env.DEMO_MODE === "true"
+}
+
+export async function simulateDeployment(deploymentId: string): Promise<void> {
+  const logs: string[] = []
+  const deployment = await prisma.deployment.findUnique({
+    where: { id: deploymentId },
+    include: {
+      project: { select: { githubRepo: true, githubBranch: true } },
+    },
+  })
+
+  if (!deployment) return
+
+  if (isDemoMode()) {
+    await simulatedDeploy(deploymentId, logs)
+    return
+  }
+
+  const hasDocker = await isDockerAvailable()
+  if (!hasDocker) {
+    logs.push(`[${new Date().toISOString()}] Docker is not available. Install Docker Desktop to use docker-local deployment, or set DEMO_MODE=true for a simulated run.`)
+    await failDeployment(deploymentId, logs)
+    return
+  }
+
+  await realDeploy(
+    {
+      id: deployment.id,
+      userId: deployment.userId,
+      project: deployment.project,
+    },
+    logs
+  )
+}
+
+async function realDeploy(deployment: DeploymentRecord, logs: string[]): Promise<void> {
+  const deploymentId = deployment.id
   const log = (msg: string) => {
     logs.push(`[${new Date().toISOString()}] ${msg}`)
   }
 
-  // Update status to BUILDING
   await prisma.deployment.update({
     where: { id: deploymentId },
     data: { status: "BUILDING", startedAt: new Date(), logs: JSON.stringify(logs) },
   })
 
+  const files = await loadDeploymentFiles(deployment)
+  if (!files) {
+    log("No GitHub repository files available. Connect a real GitHub repo or enable demo mode.")
+    await failDeployment(deploymentId, logs)
+    return
+  }
+
+  log(`Loaded ${files.length} source files from GitHub.`)
   log("Generating Dockerfile...")
-  const dockerfile = generateDockerfile(MOCK_FILES)
+  const { dockerfile, port: containerPort } = generateDockerfile(files)
   log("Dockerfile generated.")
   log(dockerfile)
 
   log("Building Docker image...")
-  const tag = `devflow/app:${deploymentId.slice(0, 8)}`
+  const tag = `devflow/app:${deploymentId.slice(0, 12)}`
 
   const result = await buildImage({
     dockerfile,
     context: process.cwd(),
     tag,
+    files,
     onLog: (line) => log(line),
   })
 
-  if (result.success) {
-    log(`Image built: ${result.imageTag}`)
-
-    await prisma.deployment.update({
-      where: { id: deploymentId },
-      data: {
-        status: "PUSHING",
-        dockerImage: result.imageTag,
-        logs: JSON.stringify(logs),
-      },
-    })
-
-    log("Simulating push to registry...")
-    await new Promise((r) => setTimeout(r, 1500))
-
-    log("Simulating deployment...")
-    await prisma.deployment.update({
-      where: { id: deploymentId },
-      data: { status: "DEPLOYING", logs: JSON.stringify(logs) },
-    })
-    await new Promise((r) => setTimeout(r, 2000))
-
-    const deployUrl = `https://staging-${deploymentId.slice(0, 8)}.devflow.app`
-    log(`Health check passed.`)
-    log(`Application available at ${deployUrl}`)
-
-    await prisma.deployment.update({
-      where: { id: deploymentId },
-      data: {
-        status: "RUNNING",
-        completedAt: new Date(),
-        url: deployUrl,
-        logs: JSON.stringify(logs),
-      },
-    })
-  } else {
+  if (!result.success) {
     log(`Build failed: ${result.error}`)
     result.logs.forEach((l) => log(l))
-
-    // Fall back to simulated deployment
-    log("Falling back to simulated deployment...")
-    await simulatedDeploy(deploymentId, logs)
+    await failDeployment(deploymentId, logs)
+    return
   }
+
+  log(`Image built: ${result.imageTag}`)
+  await prisma.deployment.update({
+    where: { id: deploymentId },
+    data: {
+      status: "PUSHING",
+      dockerImage: result.imageTag,
+      logs: JSON.stringify(logs),
+    },
+  })
+
+  log("Starting local Docker container...")
+  await prisma.deployment.update({
+    where: { id: deploymentId },
+    data: { status: "DEPLOYING", logs: JSON.stringify(logs) },
+  })
+
+  const containerName = `devflow-${deploymentId.slice(0, 12)}`
+  const container = await runContainer({
+    imageTag: result.imageTag ?? tag,
+    port: containerPort,
+    name: containerName,
+    env: { NODE_ENV: "production" },
+    labels: { "devflow.deployment": deploymentId },
+  })
+
+  if (container) {
+    log(`Container started: ${container.containerId.slice(0, 12)} (host port ${container.hostPort})`)
+    log(`Application available at ${container.url}`)
+  } else {
+    log("Image built, but the container could not be started automatically.")
+  }
+
+  await prisma.deployment.update({
+    where: { id: deploymentId },
+    data: {
+      status: container ? "RUNNING" : "FAILED",
+      completedAt: new Date(),
+      url: container?.url,
+      logs: JSON.stringify(logs),
+    },
+  })
+}
+
+function isDeployableTextFile(path: string): boolean {
+  return /\.(cjs|css|dockerfile|go|html|js|json|jsx|lock|mjs|py|rs|tsx?|txt|yaml|yml)$/i.test(path) ||
+    ["Dockerfile", "Makefile", "Procfile", "requirements.txt", "pyproject.toml", "go.mod", "go.sum"].includes(path)
+}
+
+async function loadDeploymentFiles(deployment: DeploymentRecord): Promise<Array<{ path: string; content: string }> | null> {
+  const repoRef = parseRepo(deployment.project.githubRepo)
+  if (!repoRef) return null
+
+  const token = await getUserAccessToken(deployment.userId)
+  if (!token) return null
+
+  const branch = deployment.project.githubBranch ?? "main"
+  const files = await fetchRepoSnapshot({
+    token,
+    owner: repoRef.owner,
+    repo: repoRef.repo,
+    branch,
+    fileFilter: isDeployableTextFile,
+    maxFiles: 80,
+    maxBytesPerFile: 250_000,
+    maxScannedDirs: 40,
+  })
+  return files.length > 0 ? files.map(({ path, content }) => ({ path, content })) : null
+}
+
+async function failDeployment(deploymentId: string, logs: string[]): Promise<void> {
+  await prisma.deployment.update({
+    where: { id: deploymentId },
+    data: {
+      status: "FAILED",
+      completedAt: new Date(),
+      logs: JSON.stringify(logs),
+    },
+  })
 }
 
 async function simulatedDeploy(deploymentId: string, logs: string[]): Promise<void> {

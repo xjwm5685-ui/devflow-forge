@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { createHmac, timingSafeEqual } from "crypto"
+import { z } from "zod"
 
 function verifySignature(payload: string, signature: string, secret: string): boolean {
   if (!signature) return false
@@ -10,6 +11,27 @@ function verifySignature(payload: string, signature: string, secret: string): bo
   if (sigBuf.length !== expectedBuf.length) return false
   return timingSafeEqual(sigBuf, expectedBuf)
 }
+
+const pushPayloadSchema = z.object({
+  ref: z.string(),
+  repository: z.object({
+    full_name: z.string(),
+  }),
+  commits: z.array(z.object({
+    message: z.string(),
+    id: z.string(),
+  })).optional().default([]),
+})
+
+const pullRequestPayloadSchema = z.object({
+  action: z.string(),
+  pull_request: z.object({
+    number: z.number(),
+  }).optional(),
+  repository: z.object({
+    full_name: z.string(),
+  }),
+})
 
 export async function POST(request: Request) {
   const secret = process.env.GITHUB_WEBHOOK_SECRET
@@ -25,21 +47,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let payload: any
+  let payload: unknown
   try {
     payload = JSON.parse(body)
-  } catch {
+  } catch (err) {
+    console.warn("[Webhook] Invalid JSON payload:", err instanceof Error ? err.message : err)
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
 
   switch (event) {
     case "push": {
-      const repo = payload.repository?.full_name as string
-      const branch = (payload.ref as string)?.replace("refs/heads/", "")
-      const commits = payload.commits ?? []
+      const parsed = pushPayloadSchema.safeParse(payload)
+      if (!parsed.success) {
+        console.warn("[Webhook] Invalid push payload:", parsed.error.message)
+        return NextResponse.json({ error: "Invalid push payload" }, { status: 400 })
+      }
+      const data = parsed.data
+      const repo = data.repository.full_name
+      const branch = data.ref.replace("refs/heads/", "")
+      const commits = data.commits
 
-      // Find project matching this repo
       const project = await prisma.project.findFirst({
         where: { githubRepo: repo },
         include: {
@@ -48,7 +75,6 @@ export async function POST(request: Request) {
       })
 
       if (project && project.githubBranch === branch) {
-        // Auto-trigger workflows configured for push events
         for (const workflow of project.workflows) {
           const def = JSON.parse(workflow.definition)
           const hasTrigger = def.nodes?.some(
@@ -66,7 +92,7 @@ export async function POST(request: Request) {
                 input: JSON.stringify({
                   trigger: "push",
                   branch,
-                  commits: commits.map((c: { message: string; id: string }) => ({
+                  commits: commits.map((c) => ({
                     message: c.message,
                     sha: c.id.slice(0, 7),
                   })),
@@ -74,7 +100,6 @@ export async function POST(request: Request) {
               },
             })
 
-            // Trigger workflow execution
             const { processWorkflowTask } = await import("@/lib/queue/workers/agent-worker")
             processWorkflowTask(task.id, workflow).catch(console.error)
           }
@@ -85,9 +110,14 @@ export async function POST(request: Request) {
     }
 
     case "pull_request": {
-      const action = payload.action as string
-      const pr = payload.pull_request
-      const repo = payload.repository?.full_name as string
+      const parsed = pullRequestPayloadSchema.safeParse(payload)
+      if (!parsed.success) {
+        console.warn("[Webhook] Invalid pull_request payload:", parsed.error.message)
+        return NextResponse.json({ error: "Invalid pull_request payload" }, { status: 400 })
+      }
+      const data = parsed.data
+      const action = data.action
+      const repo = data.repository.full_name
 
       if (action === "opened" || action === "synchronize") {
         const project = await prisma.project.findFirst({
@@ -95,12 +125,11 @@ export async function POST(request: Request) {
         })
 
         if (project) {
-          // Could trigger a code review workflow here
           return NextResponse.json({
             processed: true,
             event: "pull_request",
             action,
-            pr: pr?.number,
+            pr: data.pull_request?.number,
           })
         }
       }
